@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { createDb, type AppDatabase } from "../db/client.ts";
-import { users, teams } from "../db/schema.ts";
+import { users, localConfig } from "../db/schema.ts";
 import { listUsers, getUser } from "./users.ts";
 
 const TEST_DB_PATH = ".run/test-users.db";
@@ -39,6 +39,12 @@ function setupDb(): AppDatabase {
     "created_at" text DEFAULT (datetime('now')) NOT NULL,
     "updated_at" text DEFAULT (datetime('now')) NOT NULL
   )`);
+  db.run(`CREATE TABLE IF NOT EXISTS "local_config" (
+    "key" text PRIMARY KEY NOT NULL,
+    "value" text NOT NULL,
+    "created_at" text DEFAULT (datetime('now')) NOT NULL,
+    "updated_at" text DEFAULT (datetime('now')) NOT NULL
+  )`);
   return db;
 }
 
@@ -52,16 +58,17 @@ describe("listUsers", () => {
 
   afterEach(cleanup);
 
-  test("returns empty list when no users exist", () => {
+  test("returns empty nodes and pageInfo when no users exist", () => {
     // when
     const result = listUsers(db, {});
 
     // then
-    expect(result.items).toEqual([]);
-    expect(result.hasNextPage).toBe(false);
+    expect(result.nodes).toEqual([]);
+    expect(result.pageInfo.hasNextPage).toBe(false);
+    expect(result.pageInfo.endCursor).toBeUndefined();
   });
 
-  test("returns all users", () => {
+  test("returns all users in nodes array", () => {
     // given
     db.insert(users).values({ id: "u1", name: "Alice", email: "alice@test.com" }).run();
     db.insert(users).values({ id: "u2", name: "Bob", email: "bob@test.com" }).run();
@@ -70,7 +77,20 @@ describe("listUsers", () => {
     const result = listUsers(db, {});
 
     // then
-    expect(result.items).toHaveLength(2);
+    expect(result.nodes).toHaveLength(2);
+  });
+
+  test("returns users in DESC order by default", () => {
+    // given — insert with explicit timestamps
+    db.run(`INSERT INTO users (id, name, email, created_at, updated_at) VALUES ('u1', 'First', 'first@t.com', '2025-01-01 00:00:00', '2025-01-01 00:00:00')`);
+    db.run(`INSERT INTO users (id, name, email, created_at, updated_at) VALUES ('u2', 'Second', 'second@t.com', '2025-01-02 00:00:00', '2025-01-02 00:00:00')`);
+
+    // when
+    const result = listUsers(db, {});
+
+    // then — most recent first (DESC)
+    expect(result.nodes[0]!.name).toBe("Second");
+    expect(result.nodes[1]!.name).toBe("First");
   });
 
   test("filters users by query (name match)", () => {
@@ -82,8 +102,8 @@ describe("listUsers", () => {
     const result = listUsers(db, { query: "Alice" });
 
     // then
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]!.name).toBe("Alice");
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]!.name).toBe("Alice");
   });
 
   test("filters users by query (email match)", () => {
@@ -95,11 +115,11 @@ describe("listUsers", () => {
     const result = listUsers(db, { query: "bob@" });
 
     // then
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]!.email).toBe("bob@test.com");
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]!.email).toBe("bob@test.com");
   });
 
-  test("respects limit and returns cursor for pagination", () => {
+  test("respects limit and returns endCursor for pagination", () => {
     // given
     db.insert(users).values({ id: "u1", name: "A", email: "a@t.com" }).run();
     db.insert(users).values({ id: "u2", name: "B", email: "b@t.com" }).run();
@@ -107,13 +127,13 @@ describe("listUsers", () => {
 
     // when
     const page1 = listUsers(db, { limit: 2 });
-    const page2 = listUsers(db, { limit: 2, cursor: page1.cursor });
+    const page2 = listUsers(db, { limit: 2, cursor: page1.pageInfo.endCursor });
 
     // then
-    expect(page1.items).toHaveLength(2);
-    expect(page1.hasNextPage).toBe(true);
-    expect(page2.items).toHaveLength(1);
-    expect(page2.hasNextPage).toBe(false);
+    expect(page1.nodes).toHaveLength(2);
+    expect(page1.pageInfo.hasNextPage).toBe(true);
+    expect(page2.nodes).toHaveLength(1);
+    expect(page2.pageInfo.hasNextPage).toBe(false);
   });
 });
 
@@ -165,10 +185,9 @@ describe("getUser", () => {
     expect(result).toBeNull();
   });
 
-  test("'me' returns default user when configured", () => {
-    // given - set default user env var
-    const original = process.env.LOCAL_ISSUES_DEFAULT_USER;
-    process.env.LOCAL_ISSUES_DEFAULT_USER = "u1";
+  test("'me' returns default user when configured in local_config", () => {
+    // given — configure "me" via local_config table
+    db.insert(localConfig).values({ key: "default_user_id", value: "u1" }).run();
 
     // when
     const result = getUser(db, { query: "me" });
@@ -176,28 +195,14 @@ describe("getUser", () => {
     // then
     expect(result).not.toBeNull();
     expect(result!.name).toBe("Alice");
-
-    // cleanup
-    if (original === undefined) {
-      delete process.env.LOCAL_ISSUES_DEFAULT_USER;
-    } else {
-      process.env.LOCAL_ISSUES_DEFAULT_USER = original;
-    }
   });
 
-  test("'me' returns null with error hint when not configured", () => {
-    // given
-    const original = process.env.LOCAL_ISSUES_DEFAULT_USER;
-    delete process.env.LOCAL_ISSUES_DEFAULT_USER;
+  test("'me' throws error with guidance when not configured", () => {
+    // given — no local_config entry for default_user_id
 
     // when/then
     expect(() => getUser(db, { query: "me" })).toThrow(
-      /LOCAL_ISSUES_DEFAULT_USER/,
+      /default_user_id/,
     );
-
-    // cleanup
-    if (original !== undefined) {
-      process.env.LOCAL_ISSUES_DEFAULT_USER = original;
-    }
   });
 });

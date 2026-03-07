@@ -1,5 +1,5 @@
-import { eq, or, like, asc, sql } from "drizzle-orm";
-import { users } from "../db/schema.ts";
+import { eq, or, like, desc, sql } from "drizzle-orm";
+import { users, localConfig } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 import type {
   ListUsersParams,
@@ -9,6 +9,7 @@ import type {
 } from "../types/linear-mcp.d.ts";
 
 const DEFAULT_LIMIT = 50;
+const ME_CONFIG_KEY = "default_user_id";
 
 function toUser(row: typeof users.$inferSelect): User {
   return {
@@ -39,38 +40,40 @@ export function listUsers(
     ) as typeof query;
   }
 
-  // Cursor-based pagination
+  // Cursor-based pagination (DESC order)
   if (params.cursor) {
     const [cursorTime, cursorId] = decodeCursor(params.cursor);
     if (cursorTime && cursorId) {
       query = query.where(
-        sql`(${orderCol}, ${users.id}) > (${cursorTime}, ${cursorId})`,
+        sql`(${orderCol}, ${users.id}) < (${cursorTime}, ${cursorId})`,
       ) as typeof query;
     }
   }
 
   const rows = query
-    .orderBy(asc(orderCol), asc(users.id))
+    .orderBy(desc(orderCol), desc(users.id))
     .limit(limit + 1)
     .all();
 
   const hasNextPage = rows.length > limit;
   const pageRows = hasNextPage ? rows.slice(0, limit) : rows;
-  const items = pageRows.map(toUser);
+  const nodes = pageRows.map(toUser);
   const lastRow = pageRows[pageRows.length - 1];
 
   return {
-    items,
-    hasNextPage,
-    cursor:
-      hasNextPage && lastRow
-        ? encodeCursor(
-            params.orderBy === "createdAt"
-              ? lastRow.createdAt
-              : lastRow.updatedAt,
-            lastRow.id,
-          )
-        : undefined,
+    nodes,
+    pageInfo: {
+      hasNextPage,
+      endCursor:
+        hasNextPage && lastRow
+          ? encodeCursor(
+              params.orderBy === "createdAt"
+                ? lastRow.createdAt
+                : lastRow.updatedAt,
+              lastRow.id,
+            )
+          : undefined,
+    },
   };
 }
 
@@ -78,18 +81,25 @@ export function getUser(
   db: AppDatabase,
   params: GetUserParams,
 ): User | null {
-  // Handle "me" special case
+  // Handle "me" special case — read from local_config table
   if (params.query === "me") {
-    const defaultUserId = process.env.LOCAL_ISSUES_DEFAULT_USER;
-    if (!defaultUserId) {
+    const config = db
+      .select()
+      .from(localConfig)
+      .where(eq(localConfig.key, ME_CONFIG_KEY))
+      .limit(1)
+      .all()[0];
+
+    if (!config) {
       throw new Error(
-        'Default user not configured. Set LOCAL_ISSUES_DEFAULT_USER environment variable to a user ID.',
+        'Default user not configured. Run seed or insert into local_config table: key="default_user_id", value="<user-id>"',
       );
     }
+
     const row = db
       .select()
       .from(users)
-      .where(eq(users.id, defaultUserId))
+      .where(eq(users.id, config.value))
       .limit(1)
       .all()[0];
     return row ? toUser(row) : null;

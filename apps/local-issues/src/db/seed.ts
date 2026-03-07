@@ -1,8 +1,9 @@
-import { teams, users, issueStatuses } from "./schema.ts";
+import { teams, users, issueStatuses, localConfig } from "./schema.ts";
 import type { AppDatabase } from "./client.ts";
 
 const DEFAULT_TEAM_ID = "default-team";
 const DEFAULT_USER_ID = "default-user";
+const SECOND_USER_ID = "default-user-2";
 
 const SEED_TEAM = {
   id: DEFAULT_TEAM_ID,
@@ -10,11 +11,18 @@ const SEED_TEAM = {
   key: "DEF",
 } as const;
 
-const SEED_USER = {
-  id: DEFAULT_USER_ID,
-  name: "Default User",
-  email: "user@local-issues.localhost",
-} as const;
+const SEED_USERS = [
+  {
+    id: DEFAULT_USER_ID,
+    name: "Default User",
+    email: "user@local-issues.localhost",
+  },
+  {
+    id: SECOND_USER_ID,
+    name: "Second User",
+    email: "user2@local-issues.localhost",
+  },
+] as const;
 
 const SEED_STATUSES = [
   { id: "status-backlog", name: "Backlog", type: "backlog", position: 0 },
@@ -26,7 +34,10 @@ const SEED_STATUSES = [
 
 export function seed(db: AppDatabase): void {
   db.insert(teams).values(SEED_TEAM).onConflictDoNothing().run();
-  db.insert(users).values(SEED_USER).onConflictDoNothing().run();
+
+  for (const user of SEED_USERS) {
+    db.insert(users).values(user).onConflictDoNothing().run();
+  }
 
   for (const status of SEED_STATUSES) {
     db.insert(issueStatuses)
@@ -34,4 +45,10 @@ export function seed(db: AppDatabase): void {
       .onConflictDoNothing()
       .run();
   }
+
+  // Set default "me" user in local_config
+  db.insert(localConfig)
+    .values({ key: "default_user_id", value: DEFAULT_USER_ID })
+    .onConflictDoNothing()
+    .run();
 }
