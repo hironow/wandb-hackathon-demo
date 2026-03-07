@@ -24,6 +24,9 @@ RUN addgroup -g 1001 appuser && \
 COPY --from=build /app/server ./server
 COPY --from=build /app/drizzle drizzle/
 
+# Copy entrypoint script for umask and permission enforcement
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+
 # Create data directory for SQLite
 RUN mkdir -p /app/.run && chown -R appuser:appuser /app/.run && chmod 700 /app/.run
 
@@ -39,4 +42,5 @@ EXPOSE 8834
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -q --spider http://localhost:8834/healthz || exit 1
 
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["./server"]
