@@ -92,7 +92,7 @@ function toIssueLabel(row: typeof issueLabels.$inferSelect): IssueLabel {
   return {
     id: row.id,
     name: row.name,
-    color: row.color,
+    color: row.color ?? "#6b7280",
     description: row.description ?? undefined,
     parentId: row.parentId ?? undefined,
     teamId: row.teamId ?? undefined,

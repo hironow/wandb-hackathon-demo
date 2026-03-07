@@ -7,6 +7,7 @@ import { ensureTables } from "./db/migrate.ts";
 import { seedAll } from "./db/seed.ts";
 import { listIssueStatuses, getIssueStatus } from "./tools/issue-statuses.ts";
 import { listIssueLabels, createIssueLabel } from "./tools/issue-labels.ts";
+import { saveIssue, getIssue, listIssues } from "./tools/issues.ts";
 
 const VERSION = "0.1.0";
 const DEFAULT_PORT = 3100;
@@ -79,6 +80,81 @@ function registerTools(server: McpServer, db: AppDatabase): void {
     async (params) => {
       try {
         const result = createIssueLabel(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  // ── Issues ──
+
+  server.tool(
+    "get_issue",
+    "Retrieve detailed information about an issue by ID or identifier",
+    {
+      id: z.string().describe("Issue ID or identifier (e.g., DEF-123)"),
+      includeRelations: z.optional(z.boolean()).describe("Include blocking/related/duplicate relations"),
+    },
+    async (params) => {
+      const result = getIssue(db, params);
+      if (!result) {
+        return { content: [{ type: "text" as const, text: "Issue not found" }], isError: true };
+      }
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "list_issues",
+    "List issues with optional filters",
+    {
+      assignee: z.optional(z.nullable(z.string())).describe("User ID, name, email, or 'me'. Null for unassigned"),
+      state: z.optional(z.string()).describe("State type, name, or ID"),
+      team: z.optional(z.string()).describe("Team name or ID"),
+      project: z.optional(z.string()).describe("Project name, ID, or slug"),
+      label: z.optional(z.string()).describe("Label name or ID"),
+      priority: z.optional(z.number()).describe("0=None, 1=Urgent, 2=High, 3=Normal, 4=Low"),
+      cycle: z.optional(z.string()).describe("Cycle name, number, or ID"),
+      query: z.optional(z.string()).describe("Search issue title or description"),
+      parentId: z.optional(z.string()).describe("Parent issue ID"),
+      delegate: z.optional(z.string()).describe("Agent name or ID"),
+      limit: z.optional(z.number()).describe("Max results (default 50, max 250)"),
+      orderBy: z.optional(z.enum(["createdAt", "updatedAt"])).describe("Sort: createdAt | updatedAt"),
+      includeArchived: z.optional(z.boolean()).describe("Include archived items"),
+      createdAt: z.optional(z.string()).describe("Created after: ISO-8601 date/duration"),
+      updatedAt: z.optional(z.string()).describe("Updated after: ISO-8601 date/duration"),
+    },
+    async (params) => {
+      const result = listIssues(db, params);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "save_issue",
+    "Create or update a Linear issue. If id is provided, updates the existing issue; otherwise creates a new one. When creating, title and team are required.",
+    {
+      id: z.optional(z.string()).describe("Issue ID. If provided, updates the existing issue"),
+      title: z.optional(z.string()).describe("Issue title (required when creating)"),
+      team: z.optional(z.string()).describe("Team name or ID (required when creating)"),
+      description: z.optional(z.string()).describe("Content as Markdown"),
+      assignee: z.optional(z.string()).describe("User ID, name, email, or 'me'"),
+      state: z.optional(z.string()).describe("State type, name, or ID"),
+      priority: z.optional(z.number()).describe("0=None, 1=Urgent, 2=High, 3=Normal, 4=Low"),
+      estimate: z.optional(z.number()).describe("Issue estimate value"),
+      labels: z.optional(z.array(z.string())).describe("Label names or IDs"),
+      project: z.optional(z.string()).describe("Project name, ID, or slug"),
+      parentId: z.optional(z.string()).describe("Parent issue ID"),
+      dueDate: z.optional(z.string()).describe("Due date (ISO format)"),
+      cycle: z.optional(z.string()).describe("Cycle name, number, or ID"),
+      blocks: z.optional(z.array(z.string())).describe("Issue IDs/identifiers this blocks"),
+      blockedBy: z.optional(z.array(z.string())).describe("Issue IDs/identifiers blocking this"),
+    },
+    async (params) => {
+      try {
+        const result = saveIssue(db, params);
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

@@ -55,8 +55,8 @@ function toIssueStatus(row: typeof issueStatuses.$inferSelect): IssueStatus {
   return {
     id: row.id,
     name: row.name,
-    type: row.type,
-    color: row.color,
+    type: row.type as IssueStatus["type"],
+    color: row.color ?? "",
     position: row.position,
     teamId: row.teamId,
   };
