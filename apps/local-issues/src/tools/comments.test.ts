@@ -209,6 +209,75 @@ describe("listComments", () => {
   });
 });
 
+describe("saveComment (thread depth limit)", () => {
+  let db: AppDatabase;
+
+  beforeEach(() => {
+    cleanupDb();
+    db = setupTestDb();
+  });
+
+  afterEach(() => {
+    cleanupDb();
+  });
+
+  test("allows creating comments up to depth 10", () => {
+    // given
+    const issueId = createTestIssue(db);
+    let parentId: string | undefined;
+
+    // when — create 10 levels of threaded comments
+    for (let i = 0; i < 10; i++) {
+      const comment = saveComment(db, { issueId, body: `Level ${i + 1}`, parentId });
+      parentId = comment.id;
+    }
+
+    // then — all 10 should exist
+    const result = listComments(db, { issueId, limit: 250 });
+    expect(result.items).toHaveLength(10);
+  });
+
+  test("flattens reply at depth 11 to depth-10 parent", () => {
+    // given — create 10 levels
+    const issueId = createTestIssue(db);
+    let parentId: string | undefined;
+    let depth10Id: string | undefined;
+    for (let i = 0; i < 10; i++) {
+      const comment = saveComment(db, { issueId, body: `Level ${i + 1}`, parentId });
+      parentId = comment.id;
+      if (i === 9) depth10Id = comment.id;
+    }
+
+    // when — try to create at depth 11
+    const flattened = saveComment(db, { issueId, body: "Should be flattened", parentId: depth10Id });
+
+    // then — parentId should be the depth-10 comment (flattened, not rejected)
+    expect(flattened.parentId).toBe(depth10Id);
+    const result = listComments(db, { issueId, limit: 250 });
+    expect(result.items).toHaveLength(11);
+  });
+
+  test("deeply nested reply beyond depth 10 is flattened to depth-10 ancestor", () => {
+    // given — create 12 levels (should flatten at 11 and 12)
+    const issueId = createTestIssue(db);
+    let parentId: string | undefined;
+    const commentIds: string[] = [];
+    for (let i = 0; i < 10; i++) {
+      const comment = saveComment(db, { issueId, body: `Level ${i + 1}`, parentId });
+      parentId = comment.id;
+      commentIds.push(comment.id);
+    }
+
+    // when — create at depth 11 and 12
+    const c11 = saveComment(db, { issueId, body: "Level 11", parentId });
+    const c12 = saveComment(db, { issueId, body: "Level 12", parentId: c11.id });
+
+    // then — both should be flattened to the depth-10 ancestor
+    expect(c11.parentId).toBe(commentIds[9]);
+    expect(c12.parentId).toBe(commentIds[9]);
+  });
+});
+
 describe("deleteComment", () => {
   let db: AppDatabase;
 

@@ -10,6 +10,7 @@ import type {
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 250;
+const MAX_THREAD_DEPTH = 10;
 
 function toComment(row: typeof comments.$inferSelect): Comment {
   return {
@@ -40,15 +41,47 @@ export function saveComment(db: AppDatabase, params: SaveCommentParams): Comment
   return createComment(db, params);
 }
 
+function getCommentDepth(db: AppDatabase, commentId: string): number {
+  let depth = 0;
+  let currentId: string | null = commentId;
+  while (currentId) {
+    const row = db.select().from(comments).where(eq(comments.id, currentId)).get();
+    if (!row || !row.parentId) break;
+    depth++;
+    currentId = row.parentId;
+  }
+  return depth;
+}
+
+function findDepthLimitAncestor(db: AppDatabase, commentId: string): string {
+  let currentId = commentId;
+  let depth = getCommentDepth(db, commentId);
+  while (depth >= MAX_THREAD_DEPTH) {
+    const row = db.select().from(comments).where(eq(comments.id, currentId)).get();
+    if (!row || !row.parentId) break;
+    currentId = row.parentId;
+    depth--;
+  }
+  return currentId;
+}
+
 function createComment(db: AppDatabase, params: SaveCommentParams): Comment {
   if (!params.issueId) throw new Error("issueId is required when creating a comment");
 
   assertIssueExists(db, params.issueId);
 
-  if (params.parentId) {
-    const parent = db.select().from(comments).where(eq(comments.id, params.parentId)).get();
+  let effectiveParentId = params.parentId ?? null;
+
+  if (effectiveParentId) {
+    const parent = db.select().from(comments).where(eq(comments.id, effectiveParentId)).get();
     if (!parent) {
-      throw new Error(`Parent comment not found: ${params.parentId}`);
+      throw new Error(`Parent comment not found: ${effectiveParentId}`);
+    }
+
+    // Flatten if parent is already at or beyond max depth
+    const parentDepth = getCommentDepth(db, effectiveParentId);
+    if (parentDepth >= MAX_THREAD_DEPTH - 1) {
+      effectiveParentId = findDepthLimitAncestor(db, effectiveParentId);
     }
   }
 
@@ -60,7 +93,7 @@ function createComment(db: AppDatabase, params: SaveCommentParams): Comment {
     body: params.body,
     issueId: params.issueId,
     userId: null,
-    parentId: params.parentId ?? null,
+    parentId: effectiveParentId,
     createdAt: now,
     updatedAt: now,
   };

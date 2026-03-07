@@ -88,7 +88,7 @@ describe("createAttachment", () => {
     expect(attachment.subtitle).toBe("Version 1");
   });
 
-  test("saves file to disk", () => {
+  test("saves file to disk in issue_id subdirectory", () => {
     // given
     const issueId = createTestIssue(db);
 
@@ -102,6 +102,9 @@ describe("createAttachment", () => {
 
     // then
     expect(existsSync(attachment.url)).toBe(true);
+    // Path should be: {attachmentsDir}/{issueId}/{attachmentId}_{filename}
+    expect(attachment.url).toContain(`/${issueId}/`);
+    expect(attachment.url).toContain(`_saved.txt`);
   });
 
   test("throws when issue does not exist", () => {
@@ -129,6 +132,109 @@ describe("createAttachment", () => {
         contentType: "text/plain",
       }, TEST_ATTACHMENTS_DIR),
     ).toThrow(/invalid base64/i);
+  });
+});
+
+describe("createAttachment (file size limit)", () => {
+  let db: AppDatabase;
+
+  beforeEach(() => {
+    cleanupDb();
+    db = setupTestDb();
+  });
+
+  afterEach(() => {
+    cleanupDb();
+  });
+
+  test("rejects file larger than 10MB", () => {
+    // given
+    const issueId = createTestIssue(db);
+    // 10MB + 1 byte in base64 (10 * 1024 * 1024 + 1 bytes)
+    const largeBuffer = Buffer.alloc(10 * 1024 * 1024 + 1, "A");
+    const largeBase64 = largeBuffer.toString("base64");
+
+    // when / then
+    expect(() =>
+      createAttachment(db, {
+        issue: issueId,
+        base64Content: largeBase64,
+        filename: "large.bin",
+        contentType: "application/pdf",
+      }, TEST_ATTACHMENTS_DIR),
+    ).toThrow(/file size exceeds.*10.*mb/i);
+  });
+
+  test("accepts file exactly at 10MB", () => {
+    // given
+    const issueId = createTestIssue(db);
+    const exactBuffer = Buffer.alloc(10 * 1024 * 1024, "B");
+    const exactBase64 = exactBuffer.toString("base64");
+
+    // when
+    const attachment = createAttachment(db, {
+      issue: issueId,
+      base64Content: exactBase64,
+      filename: "exact10mb.bin",
+      contentType: "application/pdf",
+    }, TEST_ATTACHMENTS_DIR);
+
+    // then
+    expect(attachment.id).toBeDefined();
+  });
+});
+
+describe("createAttachment (MIME type allowlist)", () => {
+  let db: AppDatabase;
+
+  beforeEach(() => {
+    cleanupDb();
+    db = setupTestDb();
+  });
+
+  afterEach(() => {
+    cleanupDb();
+  });
+
+  test("rejects disallowed MIME type", () => {
+    // given
+    const issueId = createTestIssue(db);
+
+    // when / then
+    expect(() =>
+      createAttachment(db, {
+        issue: issueId,
+        base64Content: VALID_BASE64,
+        filename: "script.js",
+        contentType: "application/javascript",
+      }, TEST_ATTACHMENTS_DIR),
+    ).toThrow(/content type.*not allowed/i);
+  });
+
+  test("accepts allowed MIME types", () => {
+    // given
+    const issueId = createTestIssue(db);
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
+      "text/plain",
+      "text/markdown",
+      "application/json",
+    ];
+
+    // when / then — each should succeed
+    for (const contentType of allowedTypes) {
+      const attachment = createAttachment(db, {
+        issue: issueId,
+        base64Content: VALID_BASE64,
+        filename: `test-${contentType.replace("/", "-")}`,
+        contentType,
+      }, TEST_ATTACHMENTS_DIR);
+      expect(attachment.id).toBeDefined();
+    }
   });
 });
 
