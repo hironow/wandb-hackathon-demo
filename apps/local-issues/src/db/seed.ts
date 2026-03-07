@@ -9,21 +9,48 @@ const SEED_TEAM = {
   key: "DEF",
 } as const;
 
-const SEED_STATUSES = [
-  { id: "status-backlog", name: "Backlog", type: "backlog", position: 0 },
-  { id: "status-todo", name: "Todo", type: "unstarted", position: 1 },
-  { id: "status-in-progress", name: "In Progress", type: "started", position: 2 },
-  { id: "status-done", name: "Done", type: "completed", position: 3 },
-  { id: "status-cancelled", name: "Cancelled", type: "canceled", position: 4 },
-] as const;
+interface DefaultStatus {
+  name: string;
+  type: "backlog" | "unstarted" | "started" | "completed" | "canceled";
+  color: string;
+  position: number;
+}
 
-export function seed(db: AppDatabase): void {
+const DEFAULT_STATUSES: DefaultStatus[] = [
+  { name: "Backlog", type: "backlog", color: "#bec2c8", position: 0 },
+  { name: "Todo", type: "unstarted", color: "#e2e2e2", position: 1 },
+  { name: "In Progress", type: "started", color: "#f2c94c", position: 2 },
+  { name: "Done", type: "completed", color: "#5e6ad2", position: 3 },
+  { name: "Cancelled", type: "canceled", color: "#95a2b3", position: 4 },
+];
+
+export function seedDefaultTeam(db: AppDatabase): void {
   db.insert(teams).values(SEED_TEAM).onConflictDoNothing().run();
+}
 
-  for (const status of SEED_STATUSES) {
+export function seedDefaultStatuses(db: AppDatabase, teamId: string = DEFAULT_TEAM_ID): void {
+  for (const status of DEFAULT_STATUSES) {
     db.insert(issueStatuses)
-      .values({ ...status, teamId: DEFAULT_TEAM_ID })
+      .values({
+        id: `status-${teamId}-${status.type}`,
+        name: status.name,
+        type: status.type,
+        color: status.color,
+        position: status.position,
+        teamId,
+      })
       .onConflictDoNothing()
       .run();
   }
 }
+
+export function seedAll(db: AppDatabase): void {
+  seedDefaultTeam(db);
+  seedDefaultStatuses(db);
+}
+
+export function seed(db: AppDatabase): void {
+  seedAll(db);
+}
+
+export { DEFAULT_TEAM_ID, DEFAULT_STATUSES };
