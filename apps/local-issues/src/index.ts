@@ -10,6 +10,8 @@ import { listIssueLabels, createIssueLabel } from "./tools/issue-labels.ts";
 import { saveIssue, getIssue, listIssues } from "./tools/issues.ts";
 import { saveProject, getProject, listProjects, listProjectLabels } from "./tools/projects.ts";
 import { saveMilestone, getMilestone, listMilestones } from "./tools/milestones.ts";
+import { saveComment, listComments, deleteComment } from "./tools/comments.ts";
+import { createAttachment, getAttachment, deleteAttachment } from "./tools/attachments.ts";
 
 const VERSION = "0.1.0";
 const DEFAULT_PORT = 3100;
@@ -292,6 +294,119 @@ function registerTools(server: McpServer, db: AppDatabase): void {
       try {
         const result = saveMilestone(db, params);
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  // ── Comments ──
+
+  server.tool(
+    "list_comments",
+    "List comments for a specific Linear issue",
+    {
+      issueId: z.string().describe("Issue ID"),
+      limit: z.optional(z.number()).describe("Max results (default 50, max 250)"),
+    },
+    async (params) => {
+      try {
+        const result = listComments(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "save_comment",
+    "Create or update a comment. If id is provided, updates the existing comment; otherwise creates a new one. When creating, issueId and body are required.",
+    {
+      id: z.optional(z.string()).describe("Comment ID. If provided, updates the existing comment"),
+      issueId: z.optional(z.string()).describe("Issue ID (required when creating)"),
+      body: z.string().describe("Comment body (Markdown)"),
+      parentId: z.optional(z.string()).describe("Parent comment ID for threading"),
+    },
+    async (params) => {
+      try {
+        const result = saveComment(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "delete_comment",
+    "Delete a comment by ID",
+    {
+      id: z.string().describe("Comment ID"),
+    },
+    async (params) => {
+      try {
+        deleteComment(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify({ success: true }) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  // ── Attachments ──
+
+  server.tool(
+    "get_attachment",
+    "Get attachment details by ID",
+    {
+      id: z.string().describe("Attachment ID"),
+    },
+    async (params) => {
+      const result = getAttachment(db, params);
+      if (!result) {
+        return { content: [{ type: "text" as const, text: "Attachment not found" }], isError: true };
+      }
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "create_attachment",
+    "Create an attachment for an issue. Content is provided as base64-encoded data.",
+    {
+      issue: z.string().describe("Issue ID"),
+      base64Content: z.string().describe("Base64-encoded file content"),
+      filename: z.string().describe("Original filename"),
+      contentType: z.string().describe("MIME content type"),
+      title: z.optional(z.string()).describe("Attachment title"),
+      subtitle: z.optional(z.string()).describe("Attachment subtitle"),
+    },
+    async (params) => {
+      try {
+        const result = createAttachment(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "delete_attachment",
+    "Delete an attachment by ID",
+    {
+      id: z.string().describe("Attachment ID"),
+    },
+    async (params) => {
+      try {
+        deleteAttachment(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify({ success: true }) }] };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return { content: [{ type: "text" as const, text: message }], isError: true };
