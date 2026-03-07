@@ -36,7 +36,7 @@ async function main(): Promise<void> {
     const url = new URL(req.url ?? "/", `http://localhost:${port}`);
 
     // Health check endpoint
-    if (url.pathname === "/health" && req.method === "GET") {
+    if (url.pathname === "/healthz" && req.method === "GET") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: "ok", version: VERSION }));
       return;
@@ -62,7 +62,7 @@ async function main(): Promise<void> {
 
   httpServer.listen(port, () => {
     console.error(`local-issues MCP server listening on http://localhost:${port}`);
-    console.error(`Health check: http://localhost:${port}/health`);
+    console.error(`Health check: http://localhost:${port}/healthz`);
     console.error(`MCP endpoint: http://localhost:${port}/mcp`);
   });
 
