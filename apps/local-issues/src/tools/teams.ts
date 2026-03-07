@@ -1,4 +1,4 @@
-import { eq, or, like, asc, sql } from "drizzle-orm";
+import { eq, or, like, desc, sql } from "drizzle-orm";
 import { teams } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 import type {
@@ -39,36 +39,40 @@ export function listTeams(
     ) as typeof query;
   }
 
-  // Cursor-based pagination: cursor is the last item's updatedAt|id
+  // Cursor-based pagination (DESC order): cursor marks the last seen item
   if (params.cursor) {
     const [cursorTime, cursorId] = decodeCursor(params.cursor);
     if (cursorTime && cursorId) {
       query = query.where(
-        sql`(${orderCol}, ${teams.id}) > (${cursorTime}, ${cursorId})`,
+        sql`(${orderCol}, ${teams.id}) < (${cursorTime}, ${cursorId})`,
       ) as typeof query;
     }
   }
 
   const rows = query
-    .orderBy(asc(orderCol), asc(teams.id))
+    .orderBy(desc(orderCol), desc(teams.id))
     .limit(limit + 1)
     .all();
 
   const hasNextPage = rows.length > limit;
-  const items = (hasNextPage ? rows.slice(0, limit) : rows).map(toTeam);
-  const lastItem = items[items.length - 1];
+  const pageRows = hasNextPage ? rows.slice(0, limit) : rows;
+  const nodes = pageRows.map(toTeam);
+  const lastNode = nodes[nodes.length - 1];
 
   return {
-    items,
-    hasNextPage,
-    cursor: hasNextPage && lastItem
-      ? encodeCursor(
-          params.orderBy === "createdAt"
-            ? lastItem.createdAt
-            : lastItem.updatedAt,
-          lastItem.id,
-        )
-      : undefined,
+    nodes,
+    pageInfo: {
+      hasNextPage,
+      endCursor:
+        hasNextPage && lastNode
+          ? encodeCursor(
+              params.orderBy === "createdAt"
+                ? lastNode.createdAt
+                : lastNode.updatedAt,
+              lastNode.id,
+            )
+          : undefined,
+    },
   };
 }
 
@@ -107,4 +111,3 @@ function decodeCursor(cursor: string): [string | undefined, string | undefined] 
     return [undefined, undefined];
   }
 }
-

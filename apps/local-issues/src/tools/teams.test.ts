@@ -42,16 +42,17 @@ describe("listTeams", () => {
 
   afterEach(cleanup);
 
-  test("returns empty list when no teams exist", () => {
+  test("returns empty nodes and pageInfo when no teams exist", () => {
     // when
     const result = listTeams(db, {});
 
     // then
-    expect(result.items).toEqual([]);
-    expect(result.hasNextPage).toBe(false);
+    expect(result.nodes).toEqual([]);
+    expect(result.pageInfo.hasNextPage).toBe(false);
+    expect(result.pageInfo.endCursor).toBeUndefined();
   });
 
-  test("returns all teams", () => {
+  test("returns all teams in nodes array", () => {
     // given
     db.insert(teams).values({ id: "t1", name: "Alpha", key: "ALP" }).run();
     db.insert(teams).values({ id: "t2", name: "Beta", key: "BET" }).run();
@@ -60,7 +61,20 @@ describe("listTeams", () => {
     const result = listTeams(db, {});
 
     // then
-    expect(result.items).toHaveLength(2);
+    expect(result.nodes).toHaveLength(2);
+  });
+
+  test("returns teams in DESC order by default", () => {
+    // given — insert with explicit timestamps to verify ordering
+    db.run(`INSERT INTO teams (id, name, key, created_at, updated_at) VALUES ('t1', 'First', 'A', '2025-01-01 00:00:00', '2025-01-01 00:00:00')`);
+    db.run(`INSERT INTO teams (id, name, key, created_at, updated_at) VALUES ('t2', 'Second', 'B', '2025-01-02 00:00:00', '2025-01-02 00:00:00')`);
+
+    // when
+    const result = listTeams(db, {});
+
+    // then — most recent first (DESC)
+    expect(result.nodes[0]!.name).toBe("Second");
+    expect(result.nodes[1]!.name).toBe("First");
   });
 
   test("filters teams by query (name match)", () => {
@@ -72,8 +86,8 @@ describe("listTeams", () => {
     const result = listTeams(db, { query: "Alpha" });
 
     // then
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]!.name).toBe("Alpha Team");
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]!.name).toBe("Alpha Team");
   });
 
   test("filters teams by query (key match)", () => {
@@ -85,11 +99,11 @@ describe("listTeams", () => {
     const result = listTeams(db, { query: "BET" });
 
     // then
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]!.key).toBe("BET");
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]!.key).toBe("BET");
   });
 
-  test("respects limit parameter", () => {
+  test("respects limit and returns endCursor in pageInfo", () => {
     // given
     db.insert(teams).values({ id: "t1", name: "A", key: "A" }).run();
     db.insert(teams).values({ id: "t2", name: "B", key: "B" }).run();
@@ -99,26 +113,26 @@ describe("listTeams", () => {
     const result = listTeams(db, { limit: 2 });
 
     // then
-    expect(result.items).toHaveLength(2);
-    expect(result.hasNextPage).toBe(true);
-    expect(result.cursor).toBeDefined();
+    expect(result.nodes).toHaveLength(2);
+    expect(result.pageInfo.hasNextPage).toBe(true);
+    expect(result.pageInfo.endCursor).toBeDefined();
   });
 
-  test("cursor-based pagination works", () => {
+  test("cursor-based pagination works with nodes/pageInfo", () => {
     // given
     db.insert(teams).values({ id: "t1", name: "A", key: "A" }).run();
     db.insert(teams).values({ id: "t2", name: "B", key: "B" }).run();
     db.insert(teams).values({ id: "t3", name: "C", key: "C" }).run();
 
-    // when - first page
+    // when — first page
     const page1 = listTeams(db, { limit: 2 });
-    // when - second page
-    const page2 = listTeams(db, { limit: 2, cursor: page1.cursor });
+    // when — second page using endCursor
+    const page2 = listTeams(db, { limit: 2, cursor: page1.pageInfo.endCursor });
 
     // then
-    expect(page1.items).toHaveLength(2);
-    expect(page2.items).toHaveLength(1);
-    expect(page2.hasNextPage).toBe(false);
+    expect(page1.nodes).toHaveLength(2);
+    expect(page2.nodes).toHaveLength(1);
+    expect(page2.pageInfo.hasNextPage).toBe(false);
   });
 });
 
