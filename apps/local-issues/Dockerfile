@@ -32,7 +32,6 @@ USER appuser
 ENV NODE_ENV=production
 ENV MCP_PORT=8834
 ENV LOCAL_ISSUES_DB_PATH=/app/.run/local-issues.db
-ENV LOG_LEVEL=info
 
 EXPOSE 8834
 
