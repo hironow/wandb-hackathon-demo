@@ -1,0 +1,7 @@
+# phonewave runtime state — do not commit
+watch.pid
+watch.started
+delivery.log
+events/
+.run/
+.otel.env

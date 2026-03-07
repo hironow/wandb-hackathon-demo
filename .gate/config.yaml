@@ -1,0 +1,20 @@
+lang: ja
+weights:
+    adr_integrity: 0.4
+    dod_fulfillment: 0.3
+    dependency_integrity: 0.2
+    implicit_constraints: 0.1
+thresholds:
+    low_max: 0.25
+    medium_max: 0.5
+per_axis_override:
+    adr_integrity_force_high: 60
+    dod_fulfillment_force_high: 70
+    dependency_integrity_force_medium: 80
+full_check:
+    interval: 10
+    on_divergence_jump: 0.15
+convergence:
+    window_days: 14
+    threshold: 3
+    escalation_multiplier: 2

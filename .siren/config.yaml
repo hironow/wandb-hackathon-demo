@@ -1,0 +1,8 @@
+tracker:
+  team: "MY"
+  project: "just-ag-local-issues"
+
+strictness:
+  default: fog
+
+lang: "ja"
