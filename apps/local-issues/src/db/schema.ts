@@ -235,6 +235,14 @@ export const issueRelations = sqliteTable(
   (table) => [primaryKey({ columns: [table.issueId, table.relatedIssueId] })],
 );
 
+// ── Local Config ──────────────────────────────────
+
+export const localConfig = sqliteTable("local_config", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  ...timestamps,
+});
+
 // ── Sync Metadata ──────────────────────────────────
 
 export const syncMetadata = sqliteTable("sync_metadata", {
