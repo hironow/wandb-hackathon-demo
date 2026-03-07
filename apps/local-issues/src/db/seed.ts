@@ -11,6 +11,13 @@ const SEED_TEAM = {
   key: "DEF",
 } as const;
 
+const SEED_ARCHIVED_TEAM = {
+  id: "archived-team",
+  name: "Archived Team",
+  key: "ARC",
+  archivedAt: "2025-01-01T00:00:00",
+} as const;
+
 const SEED_USERS = [
   {
     id: DEFAULT_USER_ID,
@@ -34,6 +41,7 @@ const SEED_STATUSES = [
 
 export function seed(db: AppDatabase): void {
   db.insert(teams).values(SEED_TEAM).onConflictDoNothing().run();
+  db.insert(teams).values(SEED_ARCHIVED_TEAM).onConflictDoNothing().run();
 
   for (const user of SEED_USERS) {
     db.insert(users).values(user).onConflictDoNothing().run();

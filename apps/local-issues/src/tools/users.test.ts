@@ -154,6 +154,18 @@ describe("listUsers", () => {
     expect(result.nodes[0]!.name).toBe("Alice");
   });
 
+  test("returns empty result when filtering by non-existent team", () => {
+    // given
+    db.insert(users).values({ id: "u1", name: "Alice", email: "alice@t.com" }).run();
+
+    // when
+    const result = listUsers(db, { team: "nonexistent-team" });
+
+    // then
+    expect(result.nodes).toHaveLength(0);
+    expect(result.pageInfo.hasNextPage).toBe(false);
+  });
+
   test("filters users by team name", () => {
     // given
     db.run(`INSERT INTO teams (id, name, key) VALUES ('team-a', 'Team A', 'TA')`);
@@ -166,6 +178,31 @@ describe("listUsers", () => {
     // then
     expect(result.nodes).toHaveLength(1);
     expect(result.nodes[0]!.name).toBe("Alice");
+  });
+  test("filters users by createdAt date filter", () => {
+    // given
+    db.run(`INSERT INTO users (id, name, email, created_at, updated_at) VALUES ('u1', 'Old', 'old@t.com', '2025-01-01 00:00:00', '2025-01-01 00:00:00')`);
+    db.run(`INSERT INTO users (id, name, email, created_at, updated_at) VALUES ('u2', 'New', 'new@t.com', '2025-06-01 00:00:00', '2025-06-01 00:00:00')`);
+
+    // when
+    const result = listUsers(db, { createdAt: "2025-03-01T00:00:00" });
+
+    // then
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]!.name).toBe("New");
+  });
+
+  test("filters users by updatedAt date filter", () => {
+    // given
+    db.run(`INSERT INTO users (id, name, email, created_at, updated_at) VALUES ('u1', 'Stale', 'stale@t.com', '2025-01-01 00:00:00', '2025-01-01 00:00:00')`);
+    db.run(`INSERT INTO users (id, name, email, created_at, updated_at) VALUES ('u2', 'Fresh', 'fresh@t.com', '2025-01-01 00:00:00', '2025-06-01 00:00:00')`);
+
+    // when
+    const result = listUsers(db, { updatedAt: "2025-03-01T00:00:00" });
+
+    // then
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]!.name).toBe("Fresh");
   });
 });
 
