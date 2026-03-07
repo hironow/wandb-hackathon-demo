@@ -21,7 +21,7 @@ const STATE_TRANSITIONS: Record<string, string[]> = {
   started: ["paused", "completed", "canceled"],
   paused: ["started", "canceled"],
   completed: ["started"],
-  canceled: [],
+  canceled: ["planned"],
 };
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

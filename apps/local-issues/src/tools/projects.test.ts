@@ -217,6 +217,43 @@ describe("saveProject (update)", () => {
       saveProject(db, { id: created.id, targetDate: "not-a-date" }),
     ).toThrow();
   });
+
+  test("allows canceled -> planned transition (reactivation)", () => {
+    // given
+    const created = saveProject(db, { name: "Cancel Reactivate", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: created.id, state: "started" });
+    saveProject(db, { id: created.id, state: "canceled" });
+
+    // when
+    const reactivated = saveProject(db, { id: created.id, state: "planned" });
+
+    // then
+    expect(reactivated.state).toBe("planned");
+  });
+
+  test("rejects canceled -> started transition", () => {
+    // given
+    const created = saveProject(db, { name: "Cancel No Start", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: created.id, state: "started" });
+    saveProject(db, { id: created.id, state: "canceled" });
+
+    // when/then
+    expect(() =>
+      saveProject(db, { id: created.id, state: "started" }),
+    ).toThrow();
+  });
+
+  test("rejects canceled -> completed transition", () => {
+    // given
+    const created = saveProject(db, { name: "Cancel No Complete", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: created.id, state: "started" });
+    saveProject(db, { id: created.id, state: "canceled" });
+
+    // when/then
+    expect(() =>
+      saveProject(db, { id: created.id, state: "completed" }),
+    ).toThrow();
+  });
 });
 
 describe("getProject", () => {
