@@ -201,6 +201,7 @@ export interface SaveProjectParams {
   members?: string[];
   startDate?: string;
   targetDate?: string;
+  archived?: boolean;
 }
 
 export interface ListProjectLabelsParams extends PaginationParams {}
@@ -212,6 +213,7 @@ export interface Project {
   state: string;
   icon?: string;
   color?: string;
+  archivedAt?: string;
   url: string;
   createdAt: string;
   updatedAt: string;

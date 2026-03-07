@@ -217,6 +217,41 @@ describe("saveProject (update)", () => {
       saveProject(db, { id: created.id, targetDate: "not-a-date" }),
     ).toThrow();
   });
+
+  test("allows canceled -> planned transition (recovery)", () => {
+    // given
+    const created = saveProject(db, { name: "Cancel Recovery", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: created.id, state: "canceled" });
+
+    // when
+    const recovered = saveProject(db, { id: created.id, state: "planned" });
+
+    // then
+    expect(recovered.state).toBe("planned");
+  });
+
+  test("rejects canceled -> started transition", () => {
+    // given
+    const created = saveProject(db, { name: "Cancel No Start", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: created.id, state: "canceled" });
+
+    // when/then
+    expect(() =>
+      saveProject(db, { id: created.id, state: "started" }),
+    ).toThrow(/canceled/);
+  });
+
+  test("rejects completed -> canceled transition", () => {
+    // given
+    const created = saveProject(db, { name: "Complete No Cancel", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: created.id, state: "started" });
+    saveProject(db, { id: created.id, state: "completed" });
+
+    // when/then
+    expect(() =>
+      saveProject(db, { id: created.id, state: "canceled" }),
+    ).toThrow(/completed/);
+  });
 });
 
 describe("getProject", () => {
@@ -347,6 +382,83 @@ describe("listProjects", () => {
     // then
     expect(result.items).toHaveLength(2);
     expect(result.hasNextPage).toBe(true);
+  });
+});
+
+describe("saveProject (archive)", () => {
+  let db: AppDatabase;
+
+  beforeEach(() => {
+    cleanupDb();
+    db = setupTestDb();
+  });
+
+  afterEach(() => {
+    cleanupDb();
+  });
+
+  test("archives a project by setting archivedAt", () => {
+    // given
+    const created = saveProject(db, { name: "To Archive", team: DEFAULT_TEAM_ID });
+
+    // when
+    const archived = saveProject(db, { id: created.id, archived: true });
+
+    // then
+    expect(archived.archivedAt).toBeDefined();
+    expect(archived.archivedAt).not.toBeNull();
+  });
+
+  test("unarchives a project by clearing archivedAt", () => {
+    // given
+    const created = saveProject(db, { name: "To Unarchive", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: created.id, archived: true });
+
+    // when
+    const unarchived = saveProject(db, { id: created.id, archived: false });
+
+    // then
+    expect(unarchived.archivedAt).toBeUndefined();
+  });
+});
+
+describe("listProjects (archive filtering)", () => {
+  let db: AppDatabase;
+
+  beforeEach(() => {
+    cleanupDb();
+    db = setupTestDb();
+  });
+
+  afterEach(() => {
+    cleanupDb();
+  });
+
+  test("excludes archived projects by default", () => {
+    // given
+    saveProject(db, { name: "Active", team: DEFAULT_TEAM_ID });
+    const toArchive = saveProject(db, { name: "Archived", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: toArchive.id, archived: true });
+
+    // when
+    const result = listProjects(db, {});
+
+    // then
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]!.name).toBe("Active");
+  });
+
+  test("includes archived projects when includeArchived is true", () => {
+    // given
+    saveProject(db, { name: "Active", team: DEFAULT_TEAM_ID });
+    const toArchive = saveProject(db, { name: "Archived", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: toArchive.id, archived: true });
+
+    // when
+    const result = listProjects(db, { includeArchived: true });
+
+    // then
+    expect(result.items).toHaveLength(2);
   });
 });
 
