@@ -161,6 +161,7 @@ export const milestones = sqliteTable("milestones", {
   name: text("name").notNull(),
   description: text("description"),
   targetDate: text("target_date"),
+  sortOrder: integer("sort_order").notNull().default(0),
   projectId: text("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),

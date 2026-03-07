@@ -85,6 +85,47 @@ export function ensureTables(db: AppDatabase): void {
   `);
 
   sqlite.run(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      icon TEXT,
+      color TEXT,
+      state TEXT NOT NULL DEFAULT 'planned' CHECK(state IN ('planned', 'started', 'paused', 'completed', 'canceled')),
+      priority INTEGER NOT NULL DEFAULT 0,
+      start_date TEXT,
+      target_date TEXT,
+      lead_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      team_id TEXT REFERENCES teams(id) ON DELETE SET NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  sqlite.run(`
+    CREATE TABLE IF NOT EXISTS project_labels (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      color TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  sqlite.run(`
+    CREATE TABLE IF NOT EXISTS milestones (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      target_date TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  sqlite.run(`
     CREATE TABLE IF NOT EXISTS issues (
       id TEXT PRIMARY KEY,
       identifier TEXT NOT NULL UNIQUE,
