@@ -1,0 +1,37 @@
+# Port allocation registry:
+#   8833 = artifact-registry-mcp
+#   8834 = local-issues-mcp (next available after 8833)
+# To change the port, set MCP_PORT environment variable.
+
+services:
+  local-issues-mcp:
+    build:
+      context: ./apps/local-issues
+      dockerfile: Dockerfile
+    ports:
+      - "8834:8834"
+    environment:
+      MCP_PORT: "8834"
+      LOCAL_ISSUES_DB_PATH: /app/.run/local-issues.db
+      LOG_LEVEL: info
+    volumes:
+      - local-issues-data:/app/.run
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8834/healthz"]
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  local-issues-data:
+    driver: local
