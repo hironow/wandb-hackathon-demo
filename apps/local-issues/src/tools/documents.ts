@@ -1,9 +1,9 @@
-import { eq, like, and, isNull, desc, asc, gt, lt } from "drizzle-orm";
+import { eq, like, and, or, isNull, desc, asc, gt, lt } from "drizzle-orm";
 import { documents, projects, issues } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 
 const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 250;
+const MAX_LIMIT = 100;
 
 // ── Types ──
 
@@ -94,6 +94,31 @@ function parseDateFilter(value: string): Date | null {
   }
 
   return null;
+}
+
+// ── Cursor encoding ──
+
+interface CursorPayload {
+  timestamp: string;
+  id: string;
+}
+
+function encodeCursor(timestamp: string, id: string): string {
+  const payload = JSON.stringify({ timestamp, id });
+  return Buffer.from(payload).toString("base64");
+}
+
+function decodeCursor(cursor: string): CursorPayload {
+  try {
+    const decoded = Buffer.from(cursor, "base64").toString("utf-8");
+    const parsed = JSON.parse(decoded) as CursorPayload;
+    if (!parsed.timestamp || !parsed.id) {
+      throw new Error("Invalid cursor: missing timestamp or id");
+    }
+    return parsed;
+  } catch {
+    throw new Error("Invalid cursor: failed to decode");
+  }
 }
 
 // ── Helpers ──
@@ -207,7 +232,8 @@ export function listDocuments(
   db: AppDatabase,
   params: ListDocumentsParams,
 ): PaginatedResult<Document> {
-  const limit = Math.min(params.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
+  const rawLimit = params.limit ?? 0;
+  const limit = Math.min(rawLimit > 0 ? rawLimit : DEFAULT_LIMIT, MAX_LIMIT);
   const conditions: ReturnType<typeof eq>[] = [];
 
   if (!params.includeArchived) {
@@ -246,9 +272,16 @@ export function listDocuments(
   const orderCol =
     params.orderBy === "createdAt" ? documents.createdAt : documents.updatedAt;
 
-  // Cursor-based pagination: cursor is the orderCol value of the last item
+  // Cursor-based pagination: cursor is Base64(JSON({ timestamp, id }))
   if (params.cursor) {
-    conditions.push(lt(orderCol, params.cursor));
+    const { timestamp, id } = decodeCursor(params.cursor);
+    // Items ordered DESC: get items with (orderCol < timestamp) OR (orderCol == timestamp AND id < cursorId)
+    conditions.push(
+      or(
+        lt(orderCol, timestamp),
+        and(eq(orderCol, timestamp), lt(documents.id, id))
+      )!
+    );
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -257,21 +290,22 @@ export function listDocuments(
     .select()
     .from(documents)
     .where(whereClause)
-    .orderBy(desc(orderCol))
+    .orderBy(desc(orderCol), desc(documents.id))
     .limit(limit + 1)
     .all();
 
   const hasNextPage = rows.length > limit;
   const items = (hasNextPage ? rows.slice(0, limit) : rows).map(toDocument);
 
-  // Set cursor to the last item's order column value for next page
-  const cursor = items.length > 0
-    ? (params.orderBy === "createdAt"
-        ? items[items.length - 1]!.createdAt
-        : items[items.length - 1]!.updatedAt)
-    : undefined;
+  // Encode cursor from last item's timestamp + id
+  let cursor: string | undefined;
+  if (hasNextPage && items.length > 0) {
+    const lastItem = items[items.length - 1]!;
+    const ts = params.orderBy === "createdAt" ? lastItem.createdAt : lastItem.updatedAt;
+    cursor = encodeCursor(ts, lastItem.id);
+  }
 
-  return { items, hasNextPage, cursor: hasNextPage ? cursor : undefined };
+  return { items, hasNextPage, cursor };
 }
 
 export function updateDocument(db: AppDatabase, params: UpdateDocumentParams): Document {
