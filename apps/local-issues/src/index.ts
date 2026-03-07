@@ -66,7 +66,8 @@ function registerTools(server: McpServer, db: AppDatabase): void {
     "Full-text search across issues and documents using FTS5",
     {
       query: z.string().describe("Search query"),
-      page: z.optional(z.number()).describe("Page number (default 1, 10 results per page)"),
+      page: z.optional(z.number()).describe("Page number (default 1)"),
+      page_size: z.optional(z.number()).describe("Results per page (default 20, max 100)"),
     },
     async (params) => {
       try {

@@ -107,9 +107,9 @@ describe("searchDocumentation", () => {
     expect(result.items).toHaveLength(2);
   });
 
-  test("supports pagination with page parameter", () => {
+  test("default page size is 20", () => {
     // given
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 25; i++) {
       insertIssue(db, `i${i}`, `Test Issue ${i}`, `Common keyword searchable content ${i}`);
     }
     rebuildSearchIndex(db);
@@ -119,13 +119,78 @@ describe("searchDocumentation", () => {
     const page2 = searchDocumentation(db, { query: "searchable", page: 2 });
 
     // then
-    expect(page1.items).toHaveLength(10);
+    expect(page1.items).toHaveLength(20);
     expect(page1.hasNextPage).toBe(true);
     expect(page2.items).toHaveLength(5);
     expect(page2.hasNextPage).toBe(false);
   });
 
-  test("returns empty array for empty query", () => {
+  test("supports custom page_size parameter", () => {
+    // given
+    for (let i = 0; i < 8; i++) {
+      insertIssue(db, `i${i}`, `Test Issue ${i}`, `Common keyword searchable content ${i}`);
+    }
+    rebuildSearchIndex(db);
+
+    // when
+    const result = searchDocumentation(db, { query: "searchable", page: 1, page_size: 5 });
+
+    // then
+    expect(result.items).toHaveLength(5);
+    expect(result.hasNextPage).toBe(true);
+    expect(result.page_size).toBe(5);
+  });
+
+  test("page_size is capped at 100", () => {
+    // given
+    for (let i = 0; i < 5; i++) {
+      insertIssue(db, `i${i}`, `Test Issue ${i}`, `Common keyword searchable content ${i}`);
+    }
+    rebuildSearchIndex(db);
+
+    // when
+    const result = searchDocumentation(db, { query: "searchable", page_size: 200 });
+
+    // then
+    expect(result.page_size).toBe(100);
+  });
+
+  test("response includes total_count, page, and page_size fields", () => {
+    // given
+    for (let i = 0; i < 25; i++) {
+      insertIssue(db, `i${i}`, `Test Issue ${i}`, `Common keyword searchable content ${i}`);
+    }
+    rebuildSearchIndex(db);
+
+    // when
+    const result = searchDocumentation(db, { query: "searchable", page: 2 });
+
+    // then
+    expect(result.total_count).toBe(25);
+    expect(result.page).toBe(2);
+    expect(result.page_size).toBe(20);
+    expect(result.items).toHaveLength(5);
+    expect(result.hasNextPage).toBe(false);
+  });
+
+  test("total_count reflects all matches regardless of page", () => {
+    // given
+    insertIssue(db, "i1", "Alpha Bug", "searchable alpha");
+    insertIssue(db, "i2", "Beta Bug", "searchable beta");
+    insertIssue(db, "i3", "Gamma Feature", "not related");
+    rebuildSearchIndex(db);
+
+    // when
+    const result = searchDocumentation(db, { query: "searchable" });
+
+    // then
+    expect(result.total_count).toBe(2);
+    expect(result.items).toHaveLength(2);
+    expect(result.page).toBe(1);
+    expect(result.page_size).toBe(20);
+  });
+
+  test("returns empty result with metadata for empty query", () => {
     // given
     insertIssue(db, "i1", "Some Issue", "content");
     rebuildSearchIndex(db);
@@ -135,5 +200,8 @@ describe("searchDocumentation", () => {
 
     // then
     expect(result.items).toEqual([]);
+    expect(result.total_count).toBe(0);
+    expect(result.page).toBe(1);
+    expect(result.page_size).toBe(20);
   });
 });

@@ -1,7 +1,8 @@
 import { issues, documents } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 
-const PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 100;
 
 export interface SearchResult {
   title: string;
@@ -12,12 +13,16 @@ export interface SearchResult {
 
 export interface SearchResponse {
   items: SearchResult[];
+  total_count: number;
+  page: number;
+  page_size: number;
   hasNextPage: boolean;
 }
 
 export interface SearchDocumentationParams {
   query: string;
   page?: number;
+  page_size?: number;
 }
 
 interface RawSqlite {
@@ -60,29 +65,38 @@ export function searchDocumentation(
   db: AppDatabase,
   params: SearchDocumentationParams,
 ): SearchResponse {
+  const pageSize = Math.min(Math.max(1, params.page_size ?? DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
+  const page = Math.max(1, params.page ?? 1);
+
   if (!params.query || params.query.trim() === "") {
-    return { items: [], hasNextPage: false };
+    return { items: [], total_count: 0, page, page_size: pageSize, hasNextPage: false };
   }
 
-  const page = Math.max(1, params.page ?? 1);
-  const offset = (page - 1) * PAGE_SIZE;
+  const offset = (page - 1) * pageSize;
   const sqlite = getSqlite(db);
 
   const escapedQuery = escape(params.query.trim());
 
+  const countRows = sqlite
+    .query(
+      `SELECT COUNT(*) as cnt FROM search_index WHERE search_index MATCH '${escapedQuery}'`,
+    )
+    .all() as Array<{ cnt: number }>;
+  const totalCount = countRows[0]?.cnt ?? 0;
+
   const rows = sqlite
     .query(
-      `SELECT title, content, source_type, source_id FROM search_index WHERE search_index MATCH '${escapedQuery}' LIMIT ${PAGE_SIZE + 1} OFFSET ${offset}`,
+      `SELECT title, content, source_type, source_id FROM search_index WHERE search_index MATCH '${escapedQuery}' LIMIT ${pageSize} OFFSET ${offset}`,
     )
     .all() as Array<{ title: string; content: string | null; source_type: string; source_id: string }>;
 
-  const hasNextPage = rows.length > PAGE_SIZE;
-  const items = (hasNextPage ? rows.slice(0, PAGE_SIZE) : rows).map((row) => ({
+  const hasNextPage = offset + rows.length < totalCount;
+  const items = rows.map((row) => ({
     title: row.title,
     content: row.content,
     sourceType: row.source_type as "issue" | "document",
     sourceId: row.source_id,
   }));
 
-  return { items, hasNextPage };
+  return { items, total_count: totalCount, page, page_size: pageSize, hasNextPage };
 }
