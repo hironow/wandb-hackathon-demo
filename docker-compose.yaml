@@ -1,8 +1,8 @@
 services:
   local-issues-mcp:
     build:
-      context: ./apps/local-issues
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/local-issues/Dockerfile
     ports:
       - "8834:8834"
     environment:
