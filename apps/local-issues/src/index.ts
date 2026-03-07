@@ -8,6 +8,8 @@ import { seedAll } from "./db/seed.ts";
 import { listIssueStatuses, getIssueStatus } from "./tools/issue-statuses.ts";
 import { listIssueLabels, createIssueLabel } from "./tools/issue-labels.ts";
 import { saveIssue, getIssue, listIssues } from "./tools/issues.ts";
+import { saveProject, getProject, listProjects, listProjectLabels } from "./tools/projects.ts";
+import { saveMilestone, getMilestone, listMilestones } from "./tools/milestones.ts";
 
 const VERSION = "0.1.0";
 const DEFAULT_PORT = 3100;
@@ -155,6 +157,140 @@ function registerTools(server: McpServer, db: AppDatabase): void {
     async (params) => {
       try {
         const result = saveIssue(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  // ── Projects ──
+
+  server.tool(
+    "list_projects",
+    "List projects with optional filters",
+    {
+      query: z.optional(z.string()).describe("Search project name"),
+      team: z.optional(z.string()).describe("Team name or ID"),
+      state: z.optional(z.string()).describe("Project state (planned/started/paused/completed/canceled)"),
+      member: z.optional(z.string()).describe("Member user ID"),
+      initiative: z.optional(z.string()).describe("Initiative ID"),
+      includeMembers: z.optional(z.boolean()).describe("Include project members"),
+      includeMilestones: z.optional(z.boolean()).describe("Include project milestones"),
+      limit: z.optional(z.number()).describe("Max results (default 50, max 250)"),
+      orderBy: z.optional(z.enum(["createdAt", "updatedAt"])).describe("Sort order"),
+      includeArchived: z.optional(z.boolean()).describe("Include archived items"),
+      createdAt: z.optional(z.string()).describe("Created after: ISO-8601 date/duration"),
+      updatedAt: z.optional(z.string()).describe("Updated after: ISO-8601 date/duration"),
+    },
+    async (params) => {
+      const result = listProjects(db, params);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "get_project",
+    "Get project details by ID or name",
+    {
+      query: z.string().describe("Project ID, name, or slug"),
+      includeMembers: z.optional(z.boolean()).describe("Include project members"),
+      includeMilestones: z.optional(z.boolean()).describe("Include project milestones"),
+      includeResources: z.optional(z.boolean()).describe("Include project resources"),
+    },
+    async (params) => {
+      const result = getProject(db, params);
+      if (!result) {
+        return { content: [{ type: "text" as const, text: "Project not found" }], isError: true };
+      }
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "save_project",
+    "Create or update a project. If id is provided, updates the existing project; otherwise creates a new one. When creating, name and team are required.",
+    {
+      id: z.optional(z.string()).describe("Project ID. If provided, updates the existing project"),
+      name: z.optional(z.string()).describe("Project name (required when creating)"),
+      team: z.optional(z.string()).describe("Team ID (required when creating)"),
+      description: z.optional(z.string()).describe("Project description"),
+      state: z.optional(z.string()).describe("Project state (planned/started/paused/completed/canceled)"),
+      icon: z.optional(z.string()).describe("Project icon"),
+      color: z.optional(z.string()).describe("Project color (hex)"),
+      lead: z.optional(z.string()).describe("Lead user ID"),
+      startDate: z.optional(z.string()).describe("Start date (YYYY-MM-DD)"),
+      targetDate: z.optional(z.string()).describe("Target date (YYYY-MM-DD)"),
+    },
+    async (params) => {
+      try {
+        const result = saveProject(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "list_project_labels",
+    "List project labels",
+    {
+      limit: z.optional(z.number()).describe("Max results (default 50, max 250)"),
+      orderBy: z.optional(z.enum(["createdAt", "updatedAt"])).describe("Sort order"),
+      name: z.optional(z.string()).describe("Filter by label name"),
+    },
+    async (params) => {
+      const result = listProjectLabels(db, params);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  // ── Milestones ──
+
+  server.tool(
+    "list_milestones",
+    "List milestones for a project",
+    {
+      project: z.string().describe("Project ID"),
+    },
+    async (params) => {
+      const result = listMilestones(db, { projectId: params.project });
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "get_milestone",
+    "Get milestone details by ID",
+    {
+      id: z.string().describe("Milestone ID"),
+    },
+    async (params) => {
+      const result = getMilestone(db, params);
+      if (!result) {
+        return { content: [{ type: "text" as const, text: "Milestone not found" }], isError: true };
+      }
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "save_milestone",
+    "Create or update a milestone. If id is provided, updates the existing milestone; otherwise creates a new one. When creating, name and projectId are required.",
+    {
+      id: z.optional(z.string()).describe("Milestone ID. If provided, updates the existing milestone"),
+      name: z.optional(z.string()).describe("Milestone name (required when creating)"),
+      projectId: z.optional(z.string()).describe("Project ID (required when creating)"),
+      description: z.optional(z.string()).describe("Milestone description"),
+      targetDate: z.optional(z.string()).describe("Target date (YYYY-MM-DD)"),
+      sortOrder: z.optional(z.number()).describe("Sort order for display"),
+    },
+    async (params) => {
+      try {
+        const result = saveMilestone(db, params);
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
