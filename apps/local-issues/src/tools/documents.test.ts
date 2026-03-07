@@ -312,13 +312,13 @@ describe("listDocuments", () => {
     const firstPage = listDocuments(db, { limit: 2, orderBy: "createdAt" });
     expect(firstPage.items).toHaveLength(2);
     expect(firstPage.hasNextPage).toBe(true);
-    expect(firstPage.cursor).toBeDefined();
+    expect(firstPage.endCursor).toBeDefined();
 
     // when
     const secondPage = listDocuments(db, {
       limit: 2,
       orderBy: "createdAt",
-      cursor: firstPage.cursor!,
+      cursor: firstPage.endCursor!,
     });
 
     // then
@@ -337,7 +337,7 @@ describe("listDocuments", () => {
     }).toThrow("Invalid cursor");
   });
 
-  test("returns null cursor when hasNextPage is false", () => {
+  test("returns null endCursor when hasNextPage is false", () => {
     // given
     createDocument(db, { title: "Only Doc" });
 
@@ -346,7 +346,7 @@ describe("listDocuments", () => {
 
     // then
     expect(result.hasNextPage).toBe(false);
-    expect(result.cursor).toBeUndefined();
+    expect(result.endCursor).toBeNull();
   });
 
   test("filters by createdAt (ISO-8601 date)", () => {
