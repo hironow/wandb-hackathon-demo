@@ -124,4 +124,11 @@ export function ensureTables(db: AppDatabase): void {
       PRIMARY KEY (issue_id, related_issue_id)
     )
   `);
+
+  sqlite.run(`
+    CREATE TABLE IF NOT EXISTS team_sequences (
+      team_id TEXT PRIMARY KEY REFERENCES teams(id) ON DELETE CASCADE,
+      next_number INTEGER NOT NULL DEFAULT 1
+    )
+  `);
 }

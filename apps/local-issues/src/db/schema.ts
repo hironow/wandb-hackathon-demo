@@ -250,6 +250,15 @@ export const issueRelations = sqliteTable(
   (table) => [primaryKey({ columns: [table.issueId, table.relatedIssueId] })],
 );
 
+// ── Team Sequences ────────────────────────────────
+
+export const teamSequences = sqliteTable("team_sequences", {
+  teamId: text("team_id")
+    .primaryKey()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  nextNumber: integer("next_number").notNull().default(1),
+});
+
 // ── Sync Metadata ──────────────────────────────────
 
 export const syncMetadata = sqliteTable("sync_metadata", {

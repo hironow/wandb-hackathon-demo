@@ -1,5 +1,5 @@
 import { eq, and, like, desc, asc, sql } from "drizzle-orm";
-import { issues, issueStatuses, issueToLabels, issueLabels, issueRelations, teams } from "../db/schema.ts";
+import { issues, issueStatuses, issueToLabels, issueLabels, issueRelations, teams, teamSequences } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 import type {
   SaveIssueParams,
@@ -25,17 +25,26 @@ function priorityName(value: number): string {
 }
 
 function getNextSequenceNumber(db: AppDatabase, teamId: string): number {
-  const result = db
-    .select({ maxId: sql<string>`MAX(${issues.identifier})` })
-    .from(issues)
-    .where(eq(issues.teamId, teamId))
+  // Upsert: insert row with default(1) if absent, then read+increment atomically
+  db.insert(teamSequences)
+    .values({ teamId, nextNumber: 1 })
+    .onConflictDoNothing()
+    .run();
+
+  const row = db
+    .select({ nextNumber: teamSequences.nextNumber })
+    .from(teamSequences)
+    .where(eq(teamSequences.teamId, teamId))
     .get();
 
-  if (!result?.maxId) return 1;
+  const current = row!.nextNumber;
 
-  const parts = result.maxId.split("-");
-  const lastNum = parseInt(parts[parts.length - 1]!, 10);
-  return Number.isNaN(lastNum) ? 1 : lastNum + 1;
+  db.update(teamSequences)
+    .set({ nextNumber: current + 1 })
+    .where(eq(teamSequences.teamId, teamId))
+    .run();
+
+  return current;
 }
 
 function getTeamKey(db: AppDatabase, teamId: string): string {
