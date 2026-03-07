@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { createDb, type AppDatabase } from "../db/client.ts";
 import { ensureTables } from "../db/migrate.ts";
+import { teams } from "../db/schema.ts";
 import { seedDefaultTeam, DEFAULT_TEAM_ID } from "../db/seed.ts";
 import { listIssueLabels, createIssueLabel } from "./issue-labels.ts";
 import { existsSync, unlinkSync, mkdirSync } from "node:fs";
@@ -203,5 +204,25 @@ describe("createIssueLabel", () => {
 
     // when/then
     expect(() => createIssueLabel(db, { name: "Bug" })).toThrow();
+  });
+
+  test("allows same-name labels in different teams", () => {
+    // given
+    const secondTeamId = "team-second";
+    db.insert(teams).values({
+      id: secondTeamId,
+      name: "Second",
+      key: "SEC",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }).run();
+    createIssueLabel(db, { name: "Bug", teamId: DEFAULT_TEAM_ID });
+
+    // when
+    const label = createIssueLabel(db, { name: "Bug", teamId: secondTeamId });
+
+    // then
+    expect(label.name).toBe("Bug");
+    expect(label.teamId).toBe(secondTeamId);
   });
 });
