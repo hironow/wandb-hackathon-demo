@@ -165,4 +165,60 @@ export function ensureTables(db: AppDatabase): void {
       PRIMARY KEY (issue_id, related_issue_id)
     )
   `);
+
+  sqlite.run(`
+    CREATE TABLE IF NOT EXISTS comments (
+      id TEXT PRIMARY KEY,
+      body TEXT NOT NULL,
+      issue_id TEXT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      parent_id TEXT REFERENCES comments(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  sqlite.run(`CREATE INDEX IF NOT EXISTS idx_comments_issue ON comments(issue_id)`);
+  sqlite.run(`CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id)`);
+
+  sqlite.run(`
+    CREATE TABLE IF NOT EXISTS attachments (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      subtitle TEXT,
+      url TEXT NOT NULL,
+      issue_id TEXT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      metadata TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  sqlite.run(`CREATE INDEX IF NOT EXISTS idx_attachments_issue ON attachments(issue_id)`);
+
+  sqlite.run(`
+    CREATE TABLE IF NOT EXISTS documents (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      content TEXT,
+      icon TEXT,
+      color TEXT,
+      project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+      issue_id TEXT REFERENCES issues(id) ON DELETE SET NULL,
+      creator_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  sqlite.run(`
+    CREATE TABLE IF NOT EXISTS sync_metadata (
+      entity_type TEXT PRIMARY KEY,
+      last_synced_at TEXT NOT NULL,
+      cursor TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
 }
