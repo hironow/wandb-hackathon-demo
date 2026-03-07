@@ -36,14 +36,12 @@ function toAttachment(row: typeof attachments.$inferSelect): Attachment {
   };
 }
 
-function assertIssueExists(db: AppDatabase, issueId: string): void {
-  const issue = db.select().from(issues).where(eq(issues.id, issueId)).get();
-  if (!issue) {
-    const byIdentifier = db.select().from(issues).where(eq(issues.identifier, issueId)).get();
-    if (!byIdentifier) {
-      throw new Error(`Issue not found: ${issueId}`);
-    }
-  }
+function resolveIssueId(db: AppDatabase, issueIdOrIdentifier: string): string {
+  const byId = db.select().from(issues).where(eq(issues.id, issueIdOrIdentifier)).get();
+  if (byId) return byId.id;
+  const byIdentifier = db.select().from(issues).where(eq(issues.identifier, issueIdOrIdentifier)).get();
+  if (byIdentifier) return byIdentifier.id;
+  throw new Error(`Issue not found: ${issueIdOrIdentifier}`);
 }
 
 function decodeBase64(content: string): Buffer {
@@ -69,7 +67,7 @@ export function createAttachment(
   params: CreateAttachmentParams,
   attachmentsDir: string = DEFAULT_ATTACHMENTS_DIR,
 ): Attachment {
-  assertIssueExists(db, params.issue);
+  const resolvedIssueId = resolveIssueId(db, params.issue);
 
   if (!ALLOWED_CONTENT_TYPES.has(params.contentType)) {
     throw new Error(
@@ -89,7 +87,7 @@ export function createAttachment(
   const now = new Date().toISOString();
 
   // Save file to disk: {attachmentsDir}/{issue_id}/{attachment_id}_{filename}
-  const issueDir = join(attachmentsDir, params.issue);
+  const issueDir = join(attachmentsDir, resolvedIssueId);
   mkdirSync(issueDir, { recursive: true, mode: 0o755 });
   const filePath = join(issueDir, `${id}_${params.filename}`);
   writeFileSync(filePath, decoded);
@@ -99,7 +97,7 @@ export function createAttachment(
     title: params.title ?? null,
     subtitle: params.subtitle ?? null,
     url: filePath,
-    issueId: params.issue,
+    issueId: resolvedIssueId,
     metadata: JSON.stringify({ contentType: params.contentType, filename: params.filename }),
     createdAt: now,
     updatedAt: now,

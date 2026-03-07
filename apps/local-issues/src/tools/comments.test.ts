@@ -294,6 +294,57 @@ describe("saveComment (thread depth limit)", () => {
   });
 });
 
+describe("identifier resolution (MY-402)", () => {
+  let db: AppDatabase;
+
+  beforeEach(() => {
+    cleanupDb();
+    db = setupTestDb();
+  });
+
+  afterEach(() => {
+    cleanupDb();
+  });
+
+  test("saveComment resolves identifier to UUID for storage", () => {
+    // given
+    const issue = saveIssue(db, { title: "Identifier test", team: DEFAULT_TEAM_ID });
+
+    // when — pass identifier (e.g. "DEF-1") instead of UUID
+    const comment = saveComment(db, { issueId: issue.identifier, body: "Via identifier" });
+
+    // then — stored issueId should be the UUID, not the identifier
+    expect(comment.issueId).toBe(issue.id);
+    expect(comment.issueId).not.toBe(issue.identifier);
+  });
+
+  test("listComments resolves identifier to UUID for query", () => {
+    // given
+    const issue = saveIssue(db, { title: "List by identifier", team: DEFAULT_TEAM_ID });
+    saveComment(db, { issueId: issue.id, body: "Comment via UUID" });
+
+    // when — list using identifier
+    const result = listComments(db, { issueId: issue.identifier });
+
+    // then — should find the comment
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]!.body).toBe("Comment via UUID");
+  });
+
+  test("saveComment via identifier then listComments via UUID finds it", () => {
+    // given
+    const issue = saveIssue(db, { title: "Cross-reference test", team: DEFAULT_TEAM_ID });
+
+    // when — create via identifier, list via UUID
+    saveComment(db, { issueId: issue.identifier, body: "Created via identifier" });
+    const result = listComments(db, { issueId: issue.id });
+
+    // then — comment should be found by UUID
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]!.body).toBe("Created via identifier");
+  });
+});
+
 describe("deleteComment", () => {
   let db: AppDatabase;
 

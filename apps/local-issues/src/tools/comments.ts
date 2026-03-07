@@ -23,15 +23,12 @@ function toComment(row: typeof comments.$inferSelect): Comment {
   };
 }
 
-function assertIssueExists(db: AppDatabase, issueId: string): void {
-  const issue = db.select().from(issues).where(eq(issues.id, issueId)).get();
-  if (!issue) {
-    // Also try by identifier
-    const byIdentifier = db.select().from(issues).where(eq(issues.identifier, issueId)).get();
-    if (!byIdentifier) {
-      throw new Error(`Issue not found: ${issueId}`);
-    }
-  }
+function resolveIssueId(db: AppDatabase, issueIdOrIdentifier: string): string {
+  const byId = db.select().from(issues).where(eq(issues.id, issueIdOrIdentifier)).get();
+  if (byId) return byId.id;
+  const byIdentifier = db.select().from(issues).where(eq(issues.identifier, issueIdOrIdentifier)).get();
+  if (byIdentifier) return byIdentifier.id;
+  throw new Error(`Issue not found: ${issueIdOrIdentifier}`);
 }
 
 export function saveComment(db: AppDatabase, params: SaveCommentParams): Comment {
@@ -68,7 +65,7 @@ function findDepthLimitAncestor(db: AppDatabase, commentId: string): string {
 function createComment(db: AppDatabase, params: SaveCommentParams): Comment {
   if (!params.issueId) throw new Error("issueId is required when creating a comment");
 
-  assertIssueExists(db, params.issueId);
+  const resolvedIssueId = resolveIssueId(db, params.issueId);
 
   let effectiveParentId = params.parentId ?? null;
 
@@ -91,7 +88,7 @@ function createComment(db: AppDatabase, params: SaveCommentParams): Comment {
   const row = {
     id,
     body: params.body,
-    issueId: params.issueId,
+    issueId: resolvedIssueId,
     userId: null,
     parentId: effectiveParentId,
     createdAt: now,
@@ -127,14 +124,14 @@ export function listComments(
   db: AppDatabase,
   params: ListCommentsParams & { limit?: number },
 ): PaginatedResult<Comment> {
-  assertIssueExists(db, params.issueId);
+  const resolvedIssueId = resolveIssueId(db, params.issueId);
 
   const limit = Math.min(params.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
 
   const rows = db
     .select()
     .from(comments)
-    .where(eq(comments.issueId, params.issueId))
+    .where(eq(comments.issueId, resolvedIssueId))
     .orderBy(asc(comments.createdAt))
     .limit(limit + 1)
     .all();
