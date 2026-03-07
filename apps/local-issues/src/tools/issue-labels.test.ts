@@ -172,4 +172,36 @@ describe("createIssueLabel", () => {
     // when/then
     expect(() => createIssueLabel(db, { name: "Bug", teamId: DEFAULT_TEAM_ID })).toThrow();
   });
+
+  test("allows workspace-level label when team-level label with same name exists", () => {
+    // given
+    createIssueLabel(db, { name: "Bug", teamId: DEFAULT_TEAM_ID });
+
+    // when
+    const wsLabel = createIssueLabel(db, { name: "Bug" });
+
+    // then
+    expect(wsLabel.name).toBe("Bug");
+    expect(wsLabel.teamId).toBeUndefined();
+  });
+
+  test("allows team-level label when workspace-level label with same name exists", () => {
+    // given
+    createIssueLabel(db, { name: "Bug" });
+
+    // when
+    const teamLabel = createIssueLabel(db, { name: "Bug", teamId: DEFAULT_TEAM_ID });
+
+    // then
+    expect(teamLabel.name).toBe("Bug");
+    expect(teamLabel.teamId).toBe(DEFAULT_TEAM_ID);
+  });
+
+  test("throws error for duplicate workspace-level label", () => {
+    // given
+    createIssueLabel(db, { name: "Bug" });
+
+    // when/then
+    expect(() => createIssueLabel(db, { name: "Bug" })).toThrow();
+  });
 });
