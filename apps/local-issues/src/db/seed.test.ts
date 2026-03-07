@@ -53,7 +53,7 @@ describe("seed", () => {
     expect(result).toHaveLength(5);
 
     const names = result.map((s) => s.name).sort();
-    expect(names).toEqual(["Backlog", "Cancelled", "Done", "In Progress", "Todo"]);
+    expect(names).toEqual(["Backlog", "Canceled", "Done", "In Progress", "Todo"]);
   });
 
   test("creates statuses with correct types", () => {

@@ -219,6 +219,21 @@ export const attachments = sqliteTable("attachments", {
   ...timestamps,
 });
 
+// ── Issue-Label Junction ───────────────────────────
+
+export const issueToLabels = sqliteTable(
+  "issue_to_labels",
+  {
+    issueId: text("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    labelId: text("label_id")
+      .notNull()
+      .references(() => issueLabels.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.issueId, table.labelId] })],
+);
+
 // ── Issue Relations ────────────────────────────────
 
 export const issueRelations = sqliteTable(

@@ -21,7 +21,7 @@ const DEFAULT_STATUSES: DefaultStatus[] = [
   { name: "Todo", type: "unstarted", color: "#e2e2e2", position: 1 },
   { name: "In Progress", type: "started", color: "#f2c94c", position: 2 },
   { name: "Done", type: "completed", color: "#5e6ad2", position: 3 },
-  { name: "Cancelled", type: "canceled", color: "#95a2b3", position: 4 },
+  { name: "Canceled", type: "canceled", color: "#95a2b3", position: 4 },
 ];
 
 export function seedDefaultTeam(db: AppDatabase): void {
