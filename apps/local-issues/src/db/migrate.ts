@@ -88,8 +88,9 @@ export function ensureTables(db: AppDatabase): void {
   sqlite.run(`
     CREATE TABLE IF NOT EXISTS project_labels (
       id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
+      name TEXT NOT NULL UNIQUE,
       color TEXT,
+      description TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )

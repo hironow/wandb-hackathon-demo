@@ -206,6 +206,25 @@ export interface SaveProjectParams {
 
 export interface ListProjectLabelsParams extends PaginationParams {}
 
+export interface CreateProjectLabelParams {
+  name: string;
+  color?: string;
+  description?: string;
+}
+
+export interface DeleteProjectLabelParams {
+  id: string;
+}
+
+export interface ProjectLabel {
+  id: string;
+  name: string;
+  color?: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Project {
   id: string;
   name: string;

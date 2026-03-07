@@ -6,7 +6,10 @@ import type {
   GetProjectParams,
   ListProjectsParams,
   ListProjectLabelsParams,
+  CreateProjectLabelParams,
+  DeleteProjectLabelParams,
   Project,
+  ProjectLabel,
   PaginatedResult,
 } from "../types/linear-mcp.d.ts";
 
@@ -113,6 +116,7 @@ function createProject(db: AppDatabase, params: SaveProjectParams): Project {
     color: row.color,
     startDate: row.startDate,
     targetDate: row.targetDate,
+    archivedAt: null,
     leadId: row.leadId,
     teamId: row.teamId,
   });
@@ -232,10 +236,21 @@ export function listProjects(
   return { items, hasNextPage };
 }
 
+function toProjectLabel(row: typeof projectLabels.$inferSelect): ProjectLabel {
+  return {
+    id: row.id,
+    name: row.name,
+    color: row.color ?? undefined,
+    description: row.description ?? undefined,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
 export function listProjectLabels(
   db: AppDatabase,
   params: ListProjectLabelsParams,
-): PaginatedResult<{ id: string; name: string; color?: string; createdAt: string; updatedAt: string }> {
+): PaginatedResult<ProjectLabel> {
   const limit = Math.min(params.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
 
   const orderColumn =
@@ -249,13 +264,61 @@ export function listProjectLabels(
     .all();
 
   const hasNextPage = rows.length > limit;
-  const items = (hasNextPage ? rows.slice(0, limit) : rows).map((r) => ({
-    id: r.id,
-    name: r.name,
-    color: r.color ?? undefined,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-  }));
+  const items = (hasNextPage ? rows.slice(0, limit) : rows).map(toProjectLabel);
 
   return { items, hasNextPage };
+}
+
+export function createProjectLabel(
+  db: AppDatabase,
+  params: CreateProjectLabelParams,
+): ProjectLabel {
+  if (!params.name || params.name.trim() === "") {
+    throw new Error("Label name is required and cannot be empty");
+  }
+
+  const existing = db
+    .select()
+    .from(projectLabels)
+    .where(eq(projectLabels.name, params.name))
+    .get();
+
+  if (existing) {
+    throw new Error(`Project label "${params.name}" already exists`);
+  }
+
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+
+  const row = {
+    id,
+    name: params.name,
+    color: params.color ?? null,
+    description: params.description ?? null,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  db.insert(projectLabels).values(row).run();
+
+  return toProjectLabel(row);
+}
+
+export function deleteProjectLabel(
+  db: AppDatabase,
+  params: DeleteProjectLabelParams,
+): { success: boolean } {
+  const existing = db
+    .select()
+    .from(projectLabels)
+    .where(eq(projectLabels.id, params.id))
+    .get();
+
+  if (!existing) {
+    throw new Error(`Project label not found: ${params.id}`);
+  }
+
+  db.delete(projectLabels).where(eq(projectLabels.id, params.id)).run();
+
+  return { success: true };
 }
