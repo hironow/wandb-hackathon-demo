@@ -24,6 +24,7 @@ export const teams = sqliteTable("teams", {
   name: text("name").notNull(),
   key: text("key").notNull(),
   icon: text("icon"),
+  archivedAt: text("archived_at"),
   ...timestamps,
 });
 
@@ -36,6 +37,7 @@ export const users = sqliteTable("users", {
   displayName: text("display_name"),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
   admin: integer("admin", { mode: "boolean" }).notNull().default(false),
+  teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
   ...timestamps,
 });
 

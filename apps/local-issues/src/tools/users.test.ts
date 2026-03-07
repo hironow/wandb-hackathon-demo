@@ -26,6 +26,7 @@ function setupDb(): AppDatabase {
     "name" text NOT NULL,
     "key" text NOT NULL,
     "icon" text,
+    "archived_at" text,
     "created_at" text DEFAULT (datetime('now')) NOT NULL,
     "updated_at" text DEFAULT (datetime('now')) NOT NULL
   )`);
@@ -36,6 +37,7 @@ function setupDb(): AppDatabase {
     "display_name" text,
     "active" integer DEFAULT 1 NOT NULL,
     "admin" integer DEFAULT 0 NOT NULL,
+    "team_id" text REFERENCES teams(id),
     "created_at" text DEFAULT (datetime('now')) NOT NULL,
     "updated_at" text DEFAULT (datetime('now')) NOT NULL
   )`);
@@ -134,6 +136,36 @@ describe("listUsers", () => {
     expect(page1.pageInfo.hasNextPage).toBe(true);
     expect(page2.nodes).toHaveLength(1);
     expect(page2.pageInfo.hasNextPage).toBe(false);
+  });
+
+  test("filters users by team parameter", () => {
+    // given
+    db.run(`INSERT INTO teams (id, name, key) VALUES ('team-a', 'Team A', 'TA')`);
+    db.run(`INSERT INTO teams (id, name, key) VALUES ('team-b', 'Team B', 'TB')`);
+    db.insert(users).values({ id: "u1", name: "Alice", email: "alice@t.com", teamId: "team-a" }).run();
+    db.insert(users).values({ id: "u2", name: "Bob", email: "bob@t.com", teamId: "team-b" }).run();
+    db.insert(users).values({ id: "u3", name: "Charlie", email: "charlie@t.com" }).run();
+
+    // when
+    const result = listUsers(db, { team: "team-a" });
+
+    // then
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]!.name).toBe("Alice");
+  });
+
+  test("filters users by team name", () => {
+    // given
+    db.run(`INSERT INTO teams (id, name, key) VALUES ('team-a', 'Team A', 'TA')`);
+    db.insert(users).values({ id: "u1", name: "Alice", email: "alice@t.com", teamId: "team-a" }).run();
+    db.insert(users).values({ id: "u2", name: "Bob", email: "bob@t.com" }).run();
+
+    // when
+    const result = listUsers(db, { team: "Team A" });
+
+    // then
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]!.name).toBe("Alice");
   });
 });
 

@@ -1,5 +1,5 @@
 import { eq, or, like, desc, sql } from "drizzle-orm";
-import { users, localConfig } from "../db/schema.ts";
+import { users, localConfig, teams } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 import type {
   ListUsersParams,
@@ -38,6 +38,28 @@ export function listUsers(
     query = query.where(
       or(like(users.name, pattern), like(users.email, pattern)),
     ) as typeof query;
+  }
+
+  // Filter by team (id, name, or key)
+  if (params.team) {
+    const team = db
+      .select()
+      .from(teams)
+      .where(
+        or(
+          eq(teams.id, params.team),
+          eq(teams.name, params.team),
+          eq(teams.key, params.team),
+        ),
+      )
+      .limit(1)
+      .all()[0];
+    if (team) {
+      query = query.where(eq(users.teamId, team.id)) as typeof query;
+    } else {
+      // Team not found — return empty result
+      return { nodes: [], pageInfo: { hasNextPage: false } };
+    }
   }
 
   // Cursor-based pagination (DESC order)
