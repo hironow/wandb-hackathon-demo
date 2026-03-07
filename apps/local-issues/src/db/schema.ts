@@ -28,6 +28,7 @@ export const projects = sqliteTable("projects", {
   name: text("name").notNull(),
   description: text("description"),
   state: text("state").notNull().default("planned"),
+  archivedAt: text("archived_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -38,6 +39,7 @@ export const issues = sqliteTable("issues", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull().unique(),
   title: text("title").notNull(),
+  archivedAt: text("archived_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

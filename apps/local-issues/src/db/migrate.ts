@@ -23,6 +23,7 @@ export function ensureTables(db: AppDatabase): void {
       name TEXT NOT NULL,
       description TEXT,
       state TEXT NOT NULL DEFAULT 'planned',
+      archived_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -33,6 +34,7 @@ export function ensureTables(db: AppDatabase): void {
       id TEXT PRIMARY KEY,
       identifier TEXT NOT NULL UNIQUE,
       title TEXT NOT NULL,
+      archived_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )

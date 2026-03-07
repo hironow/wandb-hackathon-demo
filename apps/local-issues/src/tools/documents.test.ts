@@ -8,7 +8,7 @@ import {
   listDocuments,
   updateDocument,
 } from "./documents.ts";
-import { documents as documentsTable } from "../db/schema.ts";
+import { documents as documentsTable, projects as projectsTable, issues as issuesTable } from "../db/schema.ts";
 import { eq } from "drizzle-orm";
 import { existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -112,6 +112,48 @@ describe("createDocument", () => {
   test("throws when title is empty", () => {
     // when / then
     expect(() => createDocument(db, { title: "" })).toThrow(/title.*required/i);
+  });
+
+  test("throws when creating with archived project", () => {
+    // given
+    const archivedProjectId = "project-archived";
+    const now = new Date().toISOString();
+    db.insert(projectsTable)
+      .values({
+        id: archivedProjectId,
+        name: "Archived Project",
+        state: "started",
+        archivedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    // when / then
+    expect(() =>
+      createDocument(db, { title: "Doc", project: archivedProjectId }),
+    ).toThrow(/project.*archived/i);
+  });
+
+  test("throws when creating with archived issue", () => {
+    // given
+    const archivedIssueId = "issue-archived";
+    const now = new Date().toISOString();
+    db.insert(issuesTable)
+      .values({
+        id: archivedIssueId,
+        identifier: "TEST-998",
+        title: "Archived Issue",
+        archivedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    // when / then
+    expect(() =>
+      createDocument(db, { title: "Doc", issue: archivedIssueId }),
+    ).toThrow(/issue.*archived/i);
   });
 });
 
@@ -389,6 +431,50 @@ describe("updateDocument", () => {
     expect(() =>
       updateDocument(db, { id: doc.id, issue: "nonexistent-issue" }),
     ).toThrow(/issue.*not found/i);
+  });
+
+  test("throws when updating with archived project", () => {
+    // given
+    const doc = createDocument(db, { title: "Valid Doc" });
+    const archivedProjectId = "project-archived";
+    const now = new Date().toISOString();
+    db.insert(projectsTable)
+      .values({
+        id: archivedProjectId,
+        name: "Archived Project",
+        state: "started",
+        archivedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    // when / then
+    expect(() =>
+      updateDocument(db, { id: doc.id, project: archivedProjectId }),
+    ).toThrow(/project.*archived/i);
+  });
+
+  test("throws when updating with archived issue", () => {
+    // given
+    const doc = createDocument(db, { title: "Valid Doc" });
+    const archivedIssueId = "issue-archived";
+    const now = new Date().toISOString();
+    db.insert(issuesTable)
+      .values({
+        id: archivedIssueId,
+        identifier: "TEST-999",
+        title: "Archived Issue",
+        archivedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    // when / then
+    expect(() =>
+      updateDocument(db, { id: doc.id, issue: archivedIssueId }),
+    ).toThrow(/issue.*archived/i);
   });
 });
 
