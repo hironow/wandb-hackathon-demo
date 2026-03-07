@@ -6,7 +6,7 @@ import { createDb, type AppDatabase } from "./db/client.ts";
 import { ensureTables, ensureFtsTables } from "./db/migrate.ts";
 import { seedAll } from "./db/seed.ts";
 import { listCycles } from "./tools/cycles.ts";
-import { extractImages } from "./tools/extract-images.ts";
+import { extractImages, type ExtractImagesResult } from "./tools/extract-images.ts";
 import { searchDocumentation, rebuildSearchIndex } from "./tools/search-documentation.ts";
 
 const VERSION = "0.1.0";
@@ -49,12 +49,19 @@ function registerTools(server: McpServer, db: AppDatabase): void {
 
   server.tool(
     "extract_images",
-    "Extract image URLs and alt text from Markdown content",
+    "Extract images from Markdown content, fetch external URLs as base64 (10s timeout per request)",
     {
       markdown: z.string().describe("Markdown content to extract images from"),
+      base_url: z.optional(z.string()).describe("Base URL for resolving relative image paths"),
     },
     async (params) => {
-      const result = extractImages(params.markdown);
+      const result = await extractImages(params);
+      if (result.error) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ error: result.error }) }],
+          isError: true,
+        };
+      }
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
