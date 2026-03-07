@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "node:http";
 import { createDb } from "./db/client.ts";
+import { registerAllTools } from "./tools/register.ts";
 
 const VERSION = "0.1.0";
 const DEFAULT_PORT = 3100;
@@ -31,6 +32,7 @@ async function main(): Promise<void> {
   const port = getPort();
   const db = createDb();
   const mcpServer = createMcpServer();
+  registerAllTools(mcpServer, db);
 
   const httpServer = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://localhost:${port}`);

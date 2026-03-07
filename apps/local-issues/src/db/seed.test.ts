@@ -68,6 +68,17 @@ describe("seed", () => {
     expect(done[0]!.type).toBe("completed");
   });
 
+  test("creates default user", () => {
+    // when
+    seed(db);
+
+    // then
+    const result = db.select().from(users).all();
+    expect(result).toHaveLength(1);
+    expect(result[0]!.name).toBe("Default User");
+    expect(result[0]!.email).toBe("user@local-issues.localhost");
+  });
+
   test("is idempotent — running twice produces same result", () => {
     // when
     seed(db);
@@ -76,6 +87,9 @@ describe("seed", () => {
     // then
     const teamCount = db.select().from(teams).all();
     expect(teamCount).toHaveLength(1);
+
+    const userCount = db.select().from(users).all();
+    expect(userCount).toHaveLength(1);
 
     const statusCount = db.select().from(issueStatuses).all();
     expect(statusCount).toHaveLength(5);
