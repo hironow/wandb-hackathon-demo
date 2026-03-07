@@ -241,6 +241,113 @@ describe("schema: all tables can be created", () => {
   });
 });
 
+describe("schema: sync_metadata has sync_status column", () => {
+  let db: ReturnType<typeof createDb>;
+
+  beforeEach(() => {
+    cleanup();
+    db = createTestDb();
+    pushAllTables(db);
+  });
+
+  afterEach(cleanup);
+
+  test("sync_status defaults to 'idle'", () => {
+    // given
+    const now = new Date().toISOString();
+
+    // when
+    db.insert(syncMetadata)
+      .values({ entityType: "issues", lastSyncedAt: now })
+      .run();
+    const result = db
+      .select()
+      .from(syncMetadata)
+      .where(eq(syncMetadata.entityType, "issues"))
+      .all();
+
+    // then
+    expect(result).toHaveLength(1);
+    expect(result[0]!.syncStatus).toBe("idle");
+  });
+
+  test("sync_status can be set to 'syncing' or 'error'", () => {
+    // given
+    const now = new Date().toISOString();
+
+    // when
+    db.insert(syncMetadata)
+      .values({ entityType: "teams", lastSyncedAt: now, syncStatus: "syncing" })
+      .run();
+    db.insert(syncMetadata)
+      .values({ entityType: "users", lastSyncedAt: now, syncStatus: "error" })
+      .run();
+
+    // then
+    const syncing = db
+      .select()
+      .from(syncMetadata)
+      .where(eq(syncMetadata.entityType, "teams"))
+      .all();
+    expect(syncing[0]!.syncStatus).toBe("syncing");
+
+    const error = db
+      .select()
+      .from(syncMetadata)
+      .where(eq(syncMetadata.entityType, "users"))
+      .all();
+    expect(error[0]!.syncStatus).toBe("error");
+  });
+});
+
+describe("schema: issue_relations type CHECK constraint", () => {
+  let db: ReturnType<typeof createDb>;
+
+  beforeEach(() => {
+    cleanup();
+    db = createTestDb();
+    pushAllTables(db);
+    // Setup prerequisite data
+    db.insert(teams).values({ id: "t1", name: "Team", key: "T" }).run();
+    db.insert(issueStatuses)
+      .values({ id: "s1", name: "Backlog", type: "backlog", position: 0, teamId: "t1" })
+      .run();
+    db.insert(issues)
+      .values({ id: "i1", identifier: "T-1", title: "Issue 1", teamId: "t1", stateId: "s1" })
+      .run();
+    db.insert(issues)
+      .values({ id: "i2", identifier: "T-2", title: "Issue 2", teamId: "t1", stateId: "s1" })
+      .run();
+  });
+
+  afterEach(cleanup);
+
+  test("allows valid relation types", () => {
+    // given
+    const validTypes = ["blocks", "blocked_by", "related", "duplicate"];
+
+    // when / then — no errors
+    for (const type of validTypes) {
+      db.delete(issueRelations).run();
+      db.insert(issueRelations)
+        .values({ issueId: "i1", relatedIssueId: "i2", type })
+        .run();
+      const result = db.select().from(issueRelations).all();
+      expect(result).toHaveLength(1);
+      expect(result[0]!.type).toBe(type);
+    }
+  });
+
+  test("rejects invalid relation type", () => {
+    // given / when / then
+    expect(() => {
+      db.insert(issueRelations)
+        .values({ issueId: "i1", relatedIssueId: "i2", type: "invalid_type" })
+        .run();
+    }).toThrow();
+  });
+});
+
 // Helper: push all tables to DB using raw SQL (for testing without migrations)
 function pushAllTables(db: ReturnType<typeof createDb>): void {
   // We use Drizzle's internal SQL generation would be ideal,
@@ -391,12 +498,14 @@ function getCreateTableStatements(): string[] {
       "issue_id" text NOT NULL REFERENCES "issues"("id") ON DELETE CASCADE,
       "related_issue_id" text NOT NULL REFERENCES "issues"("id") ON DELETE CASCADE,
       "type" text NOT NULL,
-      PRIMARY KEY ("issue_id", "related_issue_id")
+      PRIMARY KEY ("issue_id", "related_issue_id"),
+      CHECK ("type" IN ('blocks', 'blocked_by', 'related', 'duplicate'))
     )`,
     `CREATE TABLE IF NOT EXISTS "sync_metadata" (
       "entity_type" text PRIMARY KEY NOT NULL,
       "last_synced_at" text NOT NULL,
       "cursor" text,
+      "sync_status" text DEFAULT 'idle' NOT NULL,
       "created_at" text DEFAULT (datetime('now')) NOT NULL,
       "updated_at" text DEFAULT (datetime('now')) NOT NULL
     )`,

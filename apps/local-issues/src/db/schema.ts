@@ -5,6 +5,7 @@ import {
   index,
   uniqueIndex,
   primaryKey,
+  check,
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
@@ -232,7 +233,13 @@ export const issueRelations = sqliteTable(
       .references(() => issues.id, { onDelete: "cascade" }),
     type: text("type").notNull(), // blocks | blocked_by | related | duplicate
   },
-  (table) => [primaryKey({ columns: [table.issueId, table.relatedIssueId] })],
+  (table) => [
+    primaryKey({ columns: [table.issueId, table.relatedIssueId] }),
+    check(
+      "chk_relation_type",
+      sql`${table.type} IN ('blocks', 'blocked_by', 'related', 'duplicate')`,
+    ),
+  ],
 );
 
 // ── Sync Metadata ──────────────────────────────────
@@ -241,5 +248,6 @@ export const syncMetadata = sqliteTable("sync_metadata", {
   entityType: text("entity_type").primaryKey(),
   lastSyncedAt: text("last_synced_at").notNull(),
   cursor: text("cursor"),
+  syncStatus: text("sync_status").notNull().default("idle"), // idle | syncing | error
   ...timestamps,
 });
