@@ -36,10 +36,14 @@ function registerTools(server: McpServer, db: AppDatabase): void {
     {
       query: z.optional(z.string()).describe("Search query for document title"),
       projectId: z.optional(z.string()).describe("Filter by project ID"),
+      initiativeId: z.optional(z.string()).describe("Filter by initiative ID"),
       creatorId: z.optional(z.string()).describe("Filter by creator user ID"),
+      cursor: z.optional(z.string()).describe("Pagination cursor from previous response"),
       includeArchived: z.optional(z.boolean()).describe("Include archived documents (default false)"),
       limit: z.optional(z.number()).describe("Max results (default 50, max 250)"),
       orderBy: z.optional(z.enum(["createdAt", "updatedAt"])).describe("Sort order"),
+      createdAt: z.optional(z.string()).describe("Filter by created date (ISO-8601 date or duration like -P7D)"),
+      updatedAt: z.optional(z.string()).describe("Filter by updated date (ISO-8601 date or duration like -P7D)"),
     },
     async (params) => {
       try {

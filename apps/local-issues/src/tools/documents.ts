@@ -1,4 +1,4 @@
-import { eq, like, and, isNull, desc, asc } from "drizzle-orm";
+import { eq, like, and, isNull, desc, asc, gt, lt } from "drizzle-orm";
 import { documents, projects, issues } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 
@@ -25,6 +25,7 @@ export interface Document {
 export interface PaginatedResult<T> {
   items: T[];
   hasNextPage: boolean;
+  cursor?: string;
 }
 
 export interface CreateDocumentParams {
@@ -44,9 +45,13 @@ export interface ListDocumentsParams {
   query?: string;
   projectId?: string;
   creatorId?: string;
+  initiativeId?: string;
   includeArchived?: boolean;
   limit?: number;
   orderBy?: "createdAt" | "updatedAt";
+  cursor?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UpdateDocumentParams {
@@ -58,6 +63,37 @@ export interface UpdateDocumentParams {
   project?: string;
   issue?: string;
   archived?: boolean;
+}
+
+// ── Date parsing ──
+
+/**
+ * Parse ISO-8601 date or duration string to a Date threshold.
+ * Supports:
+ * - Full ISO date: "2024-01-01T00:00:00.000Z"
+ * - Duration (relative to now): "-P7D" (7 days ago), "-P1M" (1 month ago), "-P1Y" (1 year ago)
+ */
+function parseDateFilter(value: string): Date | null {
+  // ISO-8601 duration: -PnD, -PnM, -PnY, PnD, etc.
+  const durationMatch = value.match(/^-?P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?$/);
+  if (durationMatch) {
+    const years = parseInt(durationMatch[1] ?? "0", 10);
+    const months = parseInt(durationMatch[2] ?? "0", 10);
+    const days = parseInt(durationMatch[3] ?? "0", 10);
+    const now = new Date();
+    now.setFullYear(now.getFullYear() - years);
+    now.setMonth(now.getMonth() - months);
+    now.setDate(now.getDate() - days);
+    return now;
+  }
+
+  // Try as ISO-8601 date string
+  const date = new Date(value);
+  if (!isNaN(date.getTime())) {
+    return date;
+  }
+
+  return null;
 }
 
 // ── Helpers ──
@@ -190,8 +226,30 @@ export function listDocuments(
     conditions.push(eq(documents.creatorId, params.creatorId));
   }
 
+  // Date filters
+  if (params.createdAt) {
+    const threshold = parseDateFilter(params.createdAt);
+    if (threshold) {
+      conditions.push(gt(documents.createdAt, threshold.toISOString()));
+    }
+  }
+
+  if (params.updatedAt) {
+    const threshold = parseDateFilter(params.updatedAt);
+    if (threshold) {
+      conditions.push(gt(documents.updatedAt, threshold.toISOString()));
+    }
+  }
+
+  // initiativeId is accepted but noop (no initiatives table exists)
+
   const orderCol =
     params.orderBy === "createdAt" ? documents.createdAt : documents.updatedAt;
+
+  // Cursor-based pagination: cursor is the orderCol value of the last item
+  if (params.cursor) {
+    conditions.push(lt(orderCol, params.cursor));
+  }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -206,7 +264,14 @@ export function listDocuments(
   const hasNextPage = rows.length > limit;
   const items = (hasNextPage ? rows.slice(0, limit) : rows).map(toDocument);
 
-  return { items, hasNextPage };
+  // Set cursor to the last item's order column value for next page
+  const cursor = items.length > 0
+    ? (params.orderBy === "createdAt"
+        ? items[items.length - 1]!.createdAt
+        : items[items.length - 1]!.updatedAt)
+    : undefined;
+
+  return { items, hasNextPage, cursor: hasNextPage ? cursor : undefined };
 }
 
 export function updateDocument(db: AppDatabase, params: UpdateDocumentParams): Document {

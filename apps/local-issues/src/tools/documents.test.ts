@@ -291,6 +291,93 @@ describe("listDocuments", () => {
     // then
     expect(result.items).toHaveLength(1);
   });
+
+  test("paginates with cursor (returns items after cursor)", () => {
+    // given
+    const docs: ReturnType<typeof createDocument>[] = [];
+    for (let i = 0; i < 5; i++) {
+      docs.push(createDocument(db, { title: `Doc ${i}` }));
+    }
+    const firstPage = listDocuments(db, { limit: 2, orderBy: "createdAt" });
+    expect(firstPage.items).toHaveLength(2);
+    expect(firstPage.hasNextPage).toBe(true);
+    expect(firstPage.cursor).toBeDefined();
+
+    // when
+    const secondPage = listDocuments(db, {
+      limit: 2,
+      orderBy: "createdAt",
+      cursor: firstPage.cursor!,
+    });
+
+    // then
+    expect(secondPage.items).toHaveLength(2);
+    expect(secondPage.items[0]!.id).not.toBe(firstPage.items[0]!.id);
+    expect(secondPage.items[0]!.id).not.toBe(firstPage.items[1]!.id);
+  });
+
+  test("filters by createdAt (ISO-8601 date)", () => {
+    // given
+    const doc = createDocument(db, { title: "Recent Doc" });
+    // Set one doc's createdAt to the past
+    db.update(documentsTable)
+      .set({ createdAt: "2020-01-01T00:00:00.000Z" })
+      .where(eq(documentsTable.id, doc.id))
+      .run();
+    createDocument(db, { title: "New Doc" });
+
+    // when — filter for docs created after 2024-01-01
+    const result = listDocuments(db, { createdAt: "2024-01-01T00:00:00.000Z" });
+
+    // then
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]!.title).toBe("New Doc");
+  });
+
+  test("filters by createdAt (ISO-8601 duration like -P7D)", () => {
+    // given
+    const doc = createDocument(db, { title: "Old Doc" });
+    db.update(documentsTable)
+      .set({ createdAt: "2020-01-01T00:00:00.000Z" })
+      .where(eq(documentsTable.id, doc.id))
+      .run();
+    createDocument(db, { title: "Fresh Doc" });
+
+    // when — filter for docs created in the last 7 days
+    const result = listDocuments(db, { createdAt: "-P7D" });
+
+    // then
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]!.title).toBe("Fresh Doc");
+  });
+
+  test("filters by updatedAt (ISO-8601 date)", () => {
+    // given
+    const doc = createDocument(db, { title: "Stale Doc" });
+    db.update(documentsTable)
+      .set({ updatedAt: "2020-01-01T00:00:00.000Z" })
+      .where(eq(documentsTable.id, doc.id))
+      .run();
+    createDocument(db, { title: "Updated Doc" });
+
+    // when
+    const result = listDocuments(db, { updatedAt: "2024-01-01T00:00:00.000Z" });
+
+    // then
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]!.title).toBe("Updated Doc");
+  });
+
+  test("accepts initiativeId param without error (noop)", () => {
+    // given
+    createDocument(db, { title: "Any Doc" });
+
+    // when — initiativeId is accepted but ignored (no initiatives table)
+    const result = listDocuments(db, { initiativeId: "some-initiative-id" });
+
+    // then
+    expect(result.items).toHaveLength(1);
+  });
 });
 
 // ── updateDocument ──
