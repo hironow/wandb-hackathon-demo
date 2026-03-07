@@ -17,10 +17,14 @@ export interface PaginationParams {
   updatedAt?: string; // ISO-8601 date/duration
 }
 
-export interface PaginatedResult<T> {
-  items: T[];
+export interface PageInfo {
   hasNextPage: boolean;
-  cursor?: string;
+  endCursor?: string;
+}
+
+export interface PaginatedResult<T> {
+  nodes: T[];
+  pageInfo: PageInfo;
 }
 
 // ── Teams ──
