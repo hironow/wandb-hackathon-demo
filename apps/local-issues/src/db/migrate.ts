@@ -21,7 +21,9 @@ export function ensureTables(db: AppDatabase): void {
       type TEXT NOT NULL CHECK(type IN ('backlog', 'unstarted', 'started', 'completed', 'canceled')),
       color TEXT NOT NULL,
       position INTEGER NOT NULL,
-      team_id TEXT NOT NULL REFERENCES teams(id)
+      team_id TEXT NOT NULL REFERENCES teams(id),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     )
   `);
 

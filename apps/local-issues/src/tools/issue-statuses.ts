@@ -59,5 +59,7 @@ function toIssueStatus(row: typeof issueStatuses.$inferSelect): IssueStatus {
     color: row.color,
     position: row.position,
     teamId: row.teamId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }

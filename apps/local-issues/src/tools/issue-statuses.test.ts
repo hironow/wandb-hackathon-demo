@@ -52,6 +52,19 @@ describe("listIssueStatuses", () => {
     expect(names).toContain("Canceled");
   });
 
+  test("each status has createdAt and updatedAt timestamps", () => {
+    // when
+    const result = listIssueStatuses(db, {});
+
+    // then
+    for (const status of result) {
+      expect(status.createdAt).toBeDefined();
+      expect(status.updatedAt).toBeDefined();
+      expect(new Date(status.createdAt).toISOString()).toBe(status.createdAt);
+      expect(new Date(status.updatedAt).toISOString()).toBe(status.updatedAt);
+    }
+  });
+
   test("filters statuses by team", () => {
     // when
     const result = listIssueStatuses(db, { team: DEFAULT_TEAM_ID });

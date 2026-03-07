@@ -32,6 +32,8 @@ export const issueStatuses = sqliteTable("issue_statuses", {
   teamId: text("team_id")
     .notNull()
     .references(() => teams.id),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
 // ── Issue Labels ──
