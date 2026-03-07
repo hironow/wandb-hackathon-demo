@@ -15,6 +15,10 @@ services:
       LOG_LEVEL: info
     volumes:
       - local-issues-data:/app/.run
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     read_only: true
     tmpfs:
       - /tmp:size=64M
