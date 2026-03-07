@@ -218,26 +218,40 @@ describe("saveProject (update)", () => {
     ).toThrow();
   });
 
-  test("allows canceled -> planned transition (recovery)", () => {
+  test("allows canceled -> planned transition (reactivation)", () => {
     // given
-    const created = saveProject(db, { name: "Cancel Recovery", team: DEFAULT_TEAM_ID });
+    const created = saveProject(db, { name: "Cancel Reactivate", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: created.id, state: "started" });
     saveProject(db, { id: created.id, state: "canceled" });
 
     // when
-    const recovered = saveProject(db, { id: created.id, state: "planned" });
+    const reactivated = saveProject(db, { id: created.id, state: "planned" });
 
     // then
-    expect(recovered.state).toBe("planned");
+    expect(reactivated.state).toBe("planned");
   });
 
   test("rejects canceled -> started transition", () => {
     // given
     const created = saveProject(db, { name: "Cancel No Start", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: created.id, state: "started" });
     saveProject(db, { id: created.id, state: "canceled" });
 
     // when/then
     expect(() =>
       saveProject(db, { id: created.id, state: "started" }),
+    ).toThrow(/canceled/);
+  });
+
+  test("rejects canceled -> completed transition", () => {
+    // given
+    const created = saveProject(db, { name: "Cancel No Complete", team: DEFAULT_TEAM_ID });
+    saveProject(db, { id: created.id, state: "started" });
+    saveProject(db, { id: created.id, state: "canceled" });
+
+    // when/then
+    expect(() =>
+      saveProject(db, { id: created.id, state: "completed" }),
     ).toThrow(/canceled/);
   });
 
