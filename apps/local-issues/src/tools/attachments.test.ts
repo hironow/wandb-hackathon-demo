@@ -238,6 +238,53 @@ describe("createAttachment (MIME type allowlist)", () => {
   });
 });
 
+describe("identifier resolution (MY-402)", () => {
+  let db: AppDatabase;
+
+  beforeEach(() => {
+    cleanupDb();
+    db = setupTestDb();
+  });
+
+  afterEach(() => {
+    cleanupDb();
+  });
+
+  test("createAttachment resolves identifier to UUID for storage", () => {
+    // given
+    const issue = saveIssue(db, { title: "Identifier test", team: DEFAULT_TEAM_ID });
+
+    // when — pass identifier instead of UUID
+    const attachment = createAttachment(db, {
+      issue: issue.identifier,
+      base64Content: VALID_BASE64,
+      filename: "test.txt",
+      contentType: "text/plain",
+    }, TEST_ATTACHMENTS_DIR);
+
+    // then — stored issueId should be the UUID, not the identifier
+    expect(attachment.issueId).toBe(issue.id);
+    expect(attachment.issueId).not.toBe(issue.identifier);
+  });
+
+  test("createAttachment uses resolved UUID for file path", () => {
+    // given
+    const issue = saveIssue(db, { title: "Path test", team: DEFAULT_TEAM_ID });
+
+    // when
+    const attachment = createAttachment(db, {
+      issue: issue.identifier,
+      base64Content: VALID_BASE64,
+      filename: "path-test.txt",
+      contentType: "text/plain",
+    }, TEST_ATTACHMENTS_DIR);
+
+    // then — file path should use UUID, not identifier
+    expect(attachment.url).toContain(`/${issue.id}/`);
+    expect(attachment.url).not.toContain(`/${issue.identifier}/`);
+  });
+});
+
 describe("getAttachment", () => {
   let db: AppDatabase;
 
