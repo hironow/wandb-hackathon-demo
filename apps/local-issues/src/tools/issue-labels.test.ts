@@ -97,6 +97,73 @@ describe("listIssueLabels", () => {
     expect(result.items).toHaveLength(2);
     expect(result.hasNextPage).toBe(true);
   });
+
+  test("returns cursor in result when hasNextPage is true", () => {
+    // given
+    createIssueLabel(db, { name: "A", color: "#111111" });
+    createIssueLabel(db, { name: "B", color: "#222222" });
+    createIssueLabel(db, { name: "C", color: "#333333" });
+
+    // when
+    const result = listIssueLabels(db, { limit: 2 });
+
+    // then
+    expect(result.hasNextPage).toBe(true);
+    expect(result.cursor).toBeDefined();
+    expect(typeof result.cursor).toBe("string");
+  });
+
+  test("does not return cursor when hasNextPage is false", () => {
+    // given
+    createIssueLabel(db, { name: "A", color: "#111111" });
+
+    // when
+    const result = listIssueLabels(db, { limit: 10 });
+
+    // then
+    expect(result.hasNextPage).toBe(false);
+    expect(result.cursor).toBeUndefined();
+  });
+
+  test("fetches next page using cursor from previous result", () => {
+    // given
+    createIssueLabel(db, { name: "A", color: "#111111" });
+    createIssueLabel(db, { name: "B", color: "#222222" });
+    createIssueLabel(db, { name: "C", color: "#333333" });
+
+    // when - first page
+    const page1 = listIssueLabels(db, { limit: 2 });
+    // when - second page using cursor
+    const page2 = listIssueLabels(db, { limit: 2, cursor: page1.cursor });
+
+    // then
+    expect(page1.items).toHaveLength(2);
+    expect(page2.items).toHaveLength(1);
+    expect(page2.hasNextPage).toBe(false);
+    expect(page2.cursor).toBeUndefined();
+
+    // ensure no overlap
+    const allNames = [...page1.items, ...page2.items].map((l) => l.name);
+    expect(new Set(allNames).size).toBe(3);
+  });
+
+  test("cursor pagination works with filters", () => {
+    // given
+    createIssueLabel(db, { name: "A", color: "#111111", teamId: DEFAULT_TEAM_ID });
+    createIssueLabel(db, { name: "B", color: "#222222", teamId: DEFAULT_TEAM_ID });
+    createIssueLabel(db, { name: "C", color: "#333333", teamId: DEFAULT_TEAM_ID });
+    createIssueLabel(db, { name: "Other", color: "#444444" }); // workspace-level
+
+    // when
+    const page1 = listIssueLabels(db, { limit: 2, team: DEFAULT_TEAM_ID });
+    const page2 = listIssueLabels(db, { limit: 2, team: DEFAULT_TEAM_ID, cursor: page1.cursor });
+
+    // then
+    expect(page1.items).toHaveLength(2);
+    expect(page1.hasNextPage).toBe(true);
+    expect(page2.items).toHaveLength(1);
+    expect(page2.hasNextPage).toBe(false);
+  });
 });
 
 describe("createIssueLabel", () => {
