@@ -1,0 +1,52 @@
+name: Docker Build & Healthcheck
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docker-build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker compose build
+
+      - name: Start container
+        run: docker compose up -d
+
+      - name: Wait for container to be healthy
+        run: |
+          echo "Waiting for container to become healthy..."
+          for i in $(seq 1 30); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$(docker compose ps -q local-issues-mcp)" 2>/dev/null || echo "not_found")
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Container is healthy after ${i}s"
+              exit 0
+            fi
+            echo "Attempt ${i}/30: status=${STATUS}"
+            sleep 1
+          done
+          echo "Container failed to become healthy within 30s"
+          docker compose logs
+          exit 1
+
+      - name: Verify /healthz endpoint
+        run: |
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8834/healthz)
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Healthcheck failed: HTTP ${HTTP_CODE}"
+            docker compose logs
+            exit 1
+          fi
+          echo "Healthcheck passed: HTTP ${HTTP_CODE}"
+
+      - name: Teardown
+        if: always()
+        run: docker compose down --volumes
