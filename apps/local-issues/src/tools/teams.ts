@@ -1,4 +1,4 @@
-import { eq, or, like, desc, sql } from "drizzle-orm";
+import { eq, or, like, desc, sql, gte, isNull } from "drizzle-orm";
 import { teams } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 import type {
@@ -37,6 +37,19 @@ export function listTeams(
     query = query.where(
       or(like(teams.name, pattern), like(teams.key, pattern)),
     ) as typeof query;
+  }
+
+  // Date filters
+  if (params.createdAt) {
+    query = query.where(gte(teams.createdAt, params.createdAt)) as typeof query;
+  }
+  if (params.updatedAt) {
+    query = query.where(gte(teams.updatedAt, params.updatedAt)) as typeof query;
+  }
+
+  // Archive filter (default: include archived)
+  if (params.includeArchived === false) {
+    query = query.where(isNull(teams.archivedAt)) as typeof query;
   }
 
   // Cursor-based pagination (DESC order): cursor marks the last seen item
