@@ -1,0 +1,7 @@
+node_modules
+.run
+*.db
+*.db-wal
+*.db-shm
+tests
+.gitignore
