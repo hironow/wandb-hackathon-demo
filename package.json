@@ -1,0 +1,7 @@
+{
+  "name": "sandbox-alpha",
+  "private": true,
+  "workspaces": [
+    "apps/local-issues"
+  ]
+}
