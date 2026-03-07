@@ -429,4 +429,20 @@ describe("slug generation", () => {
     // then
     expect(doc.slug).toBe("hello-world");
   });
+
+  test("generates fallback slug when title produces empty slug", () => {
+    // given / when
+    const doc = createDocument(db, { title: "!@#$%^&*()" });
+
+    // then
+    expect(doc.slug).toBe("untitled");
+  });
+
+  test("normalizes consecutive hyphens to single hyphen", () => {
+    // given / when
+    const doc = createDocument(db, { title: "a---b" });
+
+    // then
+    expect(doc.slug).toBe("a-b");
+  });
 });

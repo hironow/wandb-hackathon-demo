@@ -80,13 +80,15 @@ function toDocument(row: typeof documents.$inferSelect): Document {
 }
 
 function toSlug(title: string): string {
-  return title
+  const slug = title
     .toLowerCase()
     .trim()
     .replace(/[^\p{L}\p{N}\s-]/gu, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+
+  return slug || "untitled";
 }
 
 function resolveUniqueSlug(db: AppDatabase, baseSlug: string, excludeId?: string): string {
