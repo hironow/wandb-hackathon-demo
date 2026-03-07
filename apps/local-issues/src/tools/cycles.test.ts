@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { createDb, type AppDatabase } from "../db/client.ts";
 import { ensureTables } from "../db/migrate.ts";
 import { seedAll, DEFAULT_TEAM_ID } from "../db/seed.ts";
-import { listCycles } from "./cycles.ts";
+import { listCycles, validateCycleDates } from "./cycles.ts";
 import { cycles } from "../db/schema.ts";
 import { existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -142,5 +142,96 @@ describe("listCycles", () => {
 
     // then
     expect(result).toEqual([]);
+  });
+
+  test("type=current excludes cycles with null startsAt", () => {
+    // given
+    const now = new Date();
+    const future = new Date(now.getTime() + 86400000).toISOString();
+    insertCycle(db, { number: 1, startsAt: null, endsAt: future, name: "No Start" });
+
+    // when
+    const result = listCycles(db, { teamId: DEFAULT_TEAM_ID, type: "current" });
+
+    // then
+    expect(result).toEqual([]);
+  });
+
+  test("type=current excludes cycles with null endsAt", () => {
+    // given
+    const now = new Date();
+    const past = new Date(now.getTime() - 86400000).toISOString();
+    insertCycle(db, { number: 1, startsAt: past, endsAt: null, name: "No End" });
+
+    // when
+    const result = listCycles(db, { teamId: DEFAULT_TEAM_ID, type: "current" });
+
+    // then
+    expect(result).toEqual([]);
+  });
+
+  test("type=previous excludes cycles with null endsAt", () => {
+    // given
+    insertCycle(db, { number: 1, startsAt: null, endsAt: null, name: "No Dates" });
+
+    // when
+    const result = listCycles(db, { teamId: DEFAULT_TEAM_ID, type: "previous" });
+
+    // then
+    expect(result).toEqual([]);
+  });
+
+  test("type=next excludes cycles with null startsAt", () => {
+    // given
+    insertCycle(db, { number: 1, startsAt: null, endsAt: null, name: "No Dates" });
+
+    // when
+    const result = listCycles(db, { teamId: DEFAULT_TEAM_ID, type: "next" });
+
+    // then
+    expect(result).toEqual([]);
+  });
+});
+
+describe("validateCycleDates", () => {
+  test("throws error when startsAt is after endsAt", () => {
+    // given
+    const startsAt = "2026-03-10T00:00:00.000Z";
+    const endsAt = "2026-03-05T00:00:00.000Z";
+
+    // when / then
+    expect(() => validateCycleDates(startsAt, endsAt)).toThrow("start_date must not be after end_date");
+  });
+
+  test("does not throw when startsAt equals endsAt", () => {
+    // given
+    const date = "2026-03-10T00:00:00.000Z";
+
+    // when / then
+    expect(() => validateCycleDates(date, date)).not.toThrow();
+  });
+
+  test("does not throw when startsAt is before endsAt", () => {
+    // given
+    const startsAt = "2026-03-05T00:00:00.000Z";
+    const endsAt = "2026-03-10T00:00:00.000Z";
+
+    // when / then
+    expect(() => validateCycleDates(startsAt, endsAt)).not.toThrow();
+  });
+
+  test("does not throw when startsAt is null", () => {
+    // when / then
+    expect(() => validateCycleDates(null, "2026-03-10T00:00:00.000Z")).not.toThrow();
+  });
+
+  test("does not throw when endsAt is null", () => {
+    // when / then
+    expect(() => validateCycleDates("2026-03-05T00:00:00.000Z", null)).not.toThrow();
+  });
+
+  test("does not throw when both are null", () => {
+    // when / then
+    expect(() => validateCycleDates(null, null)).not.toThrow();
   });
 });
