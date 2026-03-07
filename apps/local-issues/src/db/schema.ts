@@ -8,6 +8,11 @@ export const migrations = sqliteTable("_migrations", {
   appliedAt: text("applied_at").notNull(),
 });
 
+export const seedMetadata = sqliteTable("seed_metadata", {
+  seedName: text("seed_name").primaryKey(),
+  completedAt: text("completed_at").notNull(),
+});
+
 // ── Teams (minimal, needed as FK reference) ──
 
 export const teams = sqliteTable("teams", {

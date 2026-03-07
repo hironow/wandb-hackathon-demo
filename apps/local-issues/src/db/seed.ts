@@ -1,6 +1,8 @@
-import { issueStatuses, teams } from "./schema.ts";
+import { eq } from "drizzle-orm";
+import { issueStatuses, teams, seedMetadata } from "./schema.ts";
 import type { AppDatabase } from "./client.ts";
 
+const SEED_NAME = "default-seed-v1";
 const DEFAULT_TEAM_ID = "team-default";
 const DEFAULT_TEAM = {
   id: DEFAULT_TEAM_ID,
@@ -45,9 +47,29 @@ export function seedDefaultStatuses(db: AppDatabase, teamId: string = DEFAULT_TE
   }
 }
 
+export function isSeedCompleted(db: AppDatabase): boolean {
+  const row = db
+    .select()
+    .from(seedMetadata)
+    .where(eq(seedMetadata.seedName, SEED_NAME))
+    .get();
+  return row !== undefined;
+}
+
+function markSeedCompleted(db: AppDatabase): void {
+  db.insert(seedMetadata)
+    .values({ seedName: SEED_NAME, completedAt: new Date().toISOString() })
+    .onConflictDoNothing()
+    .run();
+}
+
 export function seedAll(db: AppDatabase): void {
+  if (isSeedCompleted(db)) {
+    return;
+  }
   seedDefaultTeam(db);
   seedDefaultStatuses(db);
+  markSeedCompleted(db);
 }
 
 export { DEFAULT_TEAM_ID, DEFAULT_STATUSES };

@@ -1,7 +1,14 @@
 import { eq, and, asc } from "drizzle-orm";
-import { issueStatuses } from "../db/schema.ts";
+import { issueStatuses, teams } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 import type { ListIssueStatusesParams, GetIssueStatusParams, IssueStatus } from "../types/linear-mcp.d.ts";
+
+function validateTeamExists(db: AppDatabase, teamId: string): void {
+  const team = db.select().from(teams).where(eq(teams.id, teamId)).get();
+  if (!team) {
+    throw new Error(`Team not found: ${teamId}`);
+  }
+}
 
 export function listIssueStatuses(
   db: AppDatabase,
@@ -9,6 +16,7 @@ export function listIssueStatuses(
 ): IssueStatus[] {
   const conditions = [];
   if (params.team) {
+    validateTeamExists(db, params.team);
     conditions.push(eq(issueStatuses.teamId, params.team));
   }
 
@@ -26,6 +34,10 @@ export function getIssueStatus(
   db: AppDatabase,
   params: GetIssueStatusParams,
 ): IssueStatus | null {
+  if (params.team) {
+    validateTeamExists(db, params.team);
+  }
+
   if (params.id) {
     const row = db
       .select()

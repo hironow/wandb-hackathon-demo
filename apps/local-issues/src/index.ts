@@ -29,8 +29,13 @@ function registerTools(server: McpServer, db: AppDatabase): void {
     "List issue statuses for a team",
     { team: z.optional(z.string()).describe("Team ID to filter statuses") },
     async (params) => {
-      const result = listIssueStatuses(db, params);
-      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      try {
+        const result = listIssueStatuses(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
     },
   );
 
@@ -43,11 +48,16 @@ function registerTools(server: McpServer, db: AppDatabase): void {
       team: z.optional(z.string()).describe("Team ID"),
     },
     async (params) => {
-      const result = getIssueStatus(db, params);
-      if (!result) {
-        return { content: [{ type: "text" as const, text: "Issue status not found" }], isError: true };
+      try {
+        const result = getIssueStatus(db, params);
+        if (!result) {
+          return { content: [{ type: "text" as const, text: "Issue status not found" }], isError: true };
+        }
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
       }
-      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
 
