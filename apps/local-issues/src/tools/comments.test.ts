@@ -159,6 +159,22 @@ describe("listComments", () => {
     expect(result.items).toHaveLength(2);
   });
 
+  test("returns comments in chronological order (created_at ASC)", () => {
+    // given
+    const issueId = createTestIssue(db);
+    saveComment(db, { issueId, body: "First" });
+    saveComment(db, { issueId, body: "Second" });
+    saveComment(db, { issueId, body: "Third" });
+
+    // when
+    const result = listComments(db, { issueId });
+
+    // then — oldest first (ASC)
+    expect(result.items[0]!.body).toBe("First");
+    expect(result.items[1]!.body).toBe("Second");
+    expect(result.items[2]!.body).toBe("Third");
+  });
+
   test("does not include comments from other issues", () => {
     // given
     const issueId1 = createTestIssue(db);

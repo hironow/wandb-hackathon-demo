@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { comments, issues } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 import type {
@@ -135,7 +135,7 @@ export function listComments(
     .select()
     .from(comments)
     .where(eq(comments.issueId, params.issueId))
-    .orderBy(desc(comments.createdAt))
+    .orderBy(asc(comments.createdAt))
     .limit(limit + 1)
     .all();
 
