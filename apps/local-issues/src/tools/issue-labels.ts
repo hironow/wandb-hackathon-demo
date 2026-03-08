@@ -1,4 +1,4 @@
-import { eq, and, asc, desc } from "drizzle-orm";
+import { eq, and, asc, desc, isNull } from "drizzle-orm";
 import { issueLabels } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 import type {
@@ -57,6 +57,8 @@ export function createIssueLabel(
   const existingConditions = [eq(issueLabels.name, params.name)];
   if (params.teamId) {
     existingConditions.push(eq(issueLabels.teamId, params.teamId));
+  } else {
+    existingConditions.push(isNull(issueLabels.teamId));
   }
   const existing = db
     .select()
