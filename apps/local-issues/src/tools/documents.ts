@@ -83,7 +83,7 @@ function toSlug(title: string): string {
   return title
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
@@ -228,8 +228,20 @@ export function updateDocument(db: AppDatabase, params: UpdateDocumentParams): D
   if (params.content !== undefined) updates.content = params.content;
   if (params.icon !== undefined) updates.icon = params.icon;
   if (params.color !== undefined) updates.color = params.color;
-  if (params.project !== undefined) updates.projectId = params.project;
-  if (params.issue !== undefined) updates.issueId = params.issue;
+  if (params.project !== undefined) {
+    const proj = db.select().from(projects).where(eq(projects.id, params.project)).get();
+    if (!proj) {
+      throw new Error(`Project not found: ${params.project}`);
+    }
+    updates.projectId = params.project;
+  }
+  if (params.issue !== undefined) {
+    const iss = db.select().from(issues).where(eq(issues.id, params.issue)).get();
+    if (!iss) {
+      throw new Error(`Issue not found: ${params.issue}`);
+    }
+    updates.issueId = params.issue;
+  }
 
   if (params.archived === true) {
     updates.archivedAt = new Date().toISOString();

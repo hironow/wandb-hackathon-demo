@@ -370,4 +370,63 @@ describe("updateDocument", () => {
       /document.*not found/i,
     );
   });
+
+  test("throws when updating with nonexistent project", () => {
+    // given
+    const doc = createDocument(db, { title: "Valid Doc" });
+
+    // when / then
+    expect(() =>
+      updateDocument(db, { id: doc.id, project: "nonexistent-project" }),
+    ).toThrow(/project.*not found/i);
+  });
+
+  test("throws when updating with nonexistent issue", () => {
+    // given
+    const doc = createDocument(db, { title: "Valid Doc" });
+
+    // when / then
+    expect(() =>
+      updateDocument(db, { id: doc.id, issue: "nonexistent-issue" }),
+    ).toThrow(/issue.*not found/i);
+  });
+});
+
+// ── toSlug (non-ASCII support) ──
+
+describe("slug generation", () => {
+  let db: AppDatabase;
+
+  beforeEach(() => {
+    cleanupDb();
+    db = setupTestDb();
+  });
+
+  afterEach(() => {
+    cleanupDb();
+  });
+
+  test("preserves Japanese characters in slug", () => {
+    // given / when
+    const doc = createDocument(db, { title: "設計ドキュメント" });
+
+    // then
+    expect(doc.slug).toBe("設計ドキュメント");
+  });
+
+  test("handles mixed ASCII and non-ASCII in slug", () => {
+    // given / when
+    const doc = createDocument(db, { title: "My 設計 Doc" });
+
+    // then
+    expect(doc.slug).toBe("my-設計-doc");
+  });
+
+  test("replaces special characters with hyphens", () => {
+    // given / when
+    const doc = createDocument(db, { title: "Hello! @World#" });
+
+    // then
+    expect(doc.slug).toBe("hello-world");
+  });
 });
