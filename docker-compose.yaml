@@ -12,6 +12,9 @@ services:
         BUILDKIT_INLINE_CACHE: "1"
       cache_from:
         - type=registry,ref=local-issues-mcp:latest
+        - type=local,src=/tmp/.buildx-cache
+      cache_to:
+        - type=local,dest=/tmp/.buildx-cache,mode=max
     ports:
       - "8834:8834"
     environment:
