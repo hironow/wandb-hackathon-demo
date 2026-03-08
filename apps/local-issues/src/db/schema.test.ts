@@ -371,6 +371,7 @@ function getCreateTableStatements(): string[] {
       "name" text NOT NULL,
       "key" text NOT NULL,
       "icon" text,
+      "archived_at" text,
       "created_at" text DEFAULT (datetime('now')) NOT NULL,
       "updated_at" text DEFAULT (datetime('now')) NOT NULL
     )`,
@@ -381,6 +382,7 @@ function getCreateTableStatements(): string[] {
       "display_name" text,
       "active" integer DEFAULT 1 NOT NULL,
       "admin" integer DEFAULT 0 NOT NULL,
+      "team_id" text REFERENCES "teams"("id") ON DELETE SET NULL,
       "created_at" text DEFAULT (datetime('now')) NOT NULL,
       "updated_at" text DEFAULT (datetime('now')) NOT NULL
     )`,

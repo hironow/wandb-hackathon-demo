@@ -26,6 +26,7 @@ function setupDb(): AppDatabase {
     "name" text NOT NULL,
     "key" text NOT NULL,
     "icon" text,
+    "archived_at" text,
     "created_at" text DEFAULT (datetime('now')) NOT NULL,
     "updated_at" text DEFAULT (datetime('now')) NOT NULL
   )`);
@@ -133,6 +134,57 @@ describe("listTeams", () => {
     expect(page1.nodes).toHaveLength(2);
     expect(page2.nodes).toHaveLength(1);
     expect(page2.pageInfo.hasNextPage).toBe(false);
+  });
+
+  test("filters teams by createdAt date filter", () => {
+    // given
+    db.run(`INSERT INTO teams (id, name, key, created_at, updated_at) VALUES ('t1', 'Old', 'OLD', '2025-01-01 00:00:00', '2025-01-01 00:00:00')`);
+    db.run(`INSERT INTO teams (id, name, key, created_at, updated_at) VALUES ('t2', 'New', 'NEW', '2025-06-01 00:00:00', '2025-06-01 00:00:00')`);
+
+    // when — filter for teams created after 2025-03-01
+    const result = listTeams(db, { createdAt: "2025-03-01T00:00:00" });
+
+    // then
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]!.name).toBe("New");
+  });
+
+  test("filters teams by updatedAt date filter", () => {
+    // given
+    db.run(`INSERT INTO teams (id, name, key, created_at, updated_at) VALUES ('t1', 'Stale', 'STL', '2025-01-01 00:00:00', '2025-01-01 00:00:00')`);
+    db.run(`INSERT INTO teams (id, name, key, created_at, updated_at) VALUES ('t2', 'Fresh', 'FRH', '2025-01-01 00:00:00', '2025-06-01 00:00:00')`);
+
+    // when — filter for teams updated after 2025-03-01
+    const result = listTeams(db, { updatedAt: "2025-03-01T00:00:00" });
+
+    // then
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]!.name).toBe("Fresh");
+  });
+
+  test("excludes archived teams when includeArchived is false", () => {
+    // given
+    db.run(`INSERT INTO teams (id, name, key) VALUES ('t1', 'Active', 'ACT')`);
+    db.run(`INSERT INTO teams (id, name, key, archived_at) VALUES ('t2', 'Archived', 'ARC', '2025-06-01 00:00:00')`);
+
+    // when
+    const result = listTeams(db, { includeArchived: false });
+
+    // then
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]!.name).toBe("Active");
+  });
+
+  test("includes archived teams when includeArchived is true (default)", () => {
+    // given
+    db.run(`INSERT INTO teams (id, name, key) VALUES ('t1', 'Active', 'ACT')`);
+    db.run(`INSERT INTO teams (id, name, key, archived_at) VALUES ('t2', 'Archived', 'ARC', '2025-06-01 00:00:00')`);
+
+    // when
+    const result = listTeams(db, { includeArchived: true });
+
+    // then
+    expect(result.nodes).toHaveLength(2);
   });
 });
 
