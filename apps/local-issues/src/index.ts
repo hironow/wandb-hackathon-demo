@@ -17,6 +17,7 @@ import { registerTeamsTools, registerUsersTools } from "./tools/register.ts";
 import { listCycles } from "./tools/cycles.ts";
 import { extractImages } from "./tools/extract-images.ts";
 import { searchDocumentation, rebuildSearchIndex } from "./tools/search-documentation.ts";
+import { createDocument, getDocument, listDocuments, updateDocument } from "./tools/documents.ts";
 
 const VERSION = "0.1.0";
 const DEFAULT_PORT = 3100;
@@ -520,6 +521,91 @@ function registerTools(server: McpServer, db: AppDatabase): void {
     async (params) => {
       try {
         const result = searchDocumentation(db, params.query, params.page);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  // ── Documents ──
+
+  server.tool(
+    "list_documents",
+    "List documents with optional filtering by query, project, creator, and archive status",
+    {
+      query: z.optional(z.string()).describe("Search query for document title"),
+      projectId: z.optional(z.string()).describe("Filter by project ID"),
+      creatorId: z.optional(z.string()).describe("Filter by creator user ID"),
+      includeArchived: z.optional(z.boolean()).describe("Include archived documents (default false)"),
+      limit: z.optional(z.number()).describe("Max results (default 50, max 250)"),
+      orderBy: z.optional(z.enum(["createdAt", "updatedAt"])).describe("Sort order"),
+    },
+    async (params) => {
+      try {
+        const result = listDocuments(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "get_document",
+    "Get document details by ID or slug",
+    {
+      id: z.string().describe("Document ID or slug"),
+    },
+    async (params) => {
+      const result = getDocument(db, params);
+      if (!result) {
+        return { content: [{ type: "text" as const, text: "Document not found" }], isError: true };
+      }
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "create_document",
+    "Create a new document with title and optional content, color, icon, project, and issue association",
+    {
+      title: z.string().describe("Document title (required)"),
+      content: z.optional(z.string()).describe("Document content (Markdown)"),
+      icon: z.optional(z.string()).describe("Document icon"),
+      color: z.optional(z.string()).describe("Document color"),
+      project: z.optional(z.string()).describe("Associated project ID"),
+      issue: z.optional(z.string()).describe("Associated issue ID"),
+    },
+    async (params) => {
+      try {
+        const result = createDocument(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "update_document",
+    "Update an existing document by ID",
+    {
+      id: z.string().describe("Document ID"),
+      title: z.optional(z.string()).describe("New title"),
+      content: z.optional(z.string()).describe("New content (Markdown)"),
+      icon: z.optional(z.string()).describe("New icon"),
+      color: z.optional(z.string()).describe("New color"),
+      project: z.optional(z.string()).describe("New project ID"),
+      issue: z.optional(z.string()).describe("New issue ID"),
+      archived: z.optional(z.boolean()).describe("Archive or unarchive the document"),
+    },
+    async (params) => {
+      try {
+        const result = updateDocument(db, params);
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
