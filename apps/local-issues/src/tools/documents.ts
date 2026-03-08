@@ -207,12 +207,18 @@ export function createDocument(db: AppDatabase, params: CreateDocumentParams): D
     if (!proj) {
       throw new Error(`Project not found: ${params.project}`);
     }
+    if (proj.archivedAt) {
+      throw new Error(`Project is archived: ${params.project}`);
+    }
   }
 
   if (params.issue) {
     const iss = db.select().from(issues).where(eq(issues.id, params.issue)).get();
     if (!iss) {
       throw new Error(`Issue not found: ${params.issue}`);
+    }
+    if (iss.archivedAt) {
+      throw new Error(`Issue is archived: ${params.issue}`);
     }
   }
 
@@ -361,12 +367,18 @@ export function updateDocument(db: AppDatabase, params: UpdateDocumentParams): D
     if (!proj) {
       throw new Error(`Project not found: ${params.project}`);
     }
+    if (proj.archivedAt) {
+      throw new Error(`Project is archived: ${params.project}`);
+    }
     updates.projectId = params.project;
   }
   if (params.issue !== undefined) {
     const iss = db.select().from(issues).where(eq(issues.id, params.issue)).get();
     if (!iss) {
       throw new Error(`Issue not found: ${params.issue}`);
+    }
+    if (iss.archivedAt) {
+      throw new Error(`Issue is archived: ${params.issue}`);
     }
     updates.issueId = params.issue;
   }
