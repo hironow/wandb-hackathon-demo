@@ -111,4 +111,4 @@ export function seed(db: AppDatabase): void {
   seedAll(db);
 }
 
-export { DEFAULT_TEAM_ID, DEFAULT_STATUSES };
+export { DEFAULT_TEAM_ID, DEFAULT_USER_ID, DEFAULT_STATUSES };

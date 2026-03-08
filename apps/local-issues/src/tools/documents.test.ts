@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { createDb, type AppDatabase } from "../db/client.ts";
 import { ensureTables } from "../db/migrate.ts";
-import { seedAll, DEFAULT_USER_ID, DEFAULT_PROJECT_ID } from "../db/seed.ts";
+import { seedAll, DEFAULT_TEAM_ID } from "../db/seed.ts";
 import {
   createDocument,
   getDocument,
@@ -14,12 +14,19 @@ import { existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 const TEST_DB_PATH = ".run/test-documents.db";
+const DEFAULT_PROJECT_ID = "test-project";
+const DEFAULT_USER_ID = "default-user";
 
 function setupTestDb(): AppDatabase {
   mkdirSync(dirname(TEST_DB_PATH), { recursive: true });
   const db = createDb(TEST_DB_PATH);
   ensureTables(db);
   seedAll(db);
+  // Seed a test project for document tests
+  db.insert(projectsTable)
+    .values({ id: DEFAULT_PROJECT_ID, name: "Test Project", teamId: DEFAULT_TEAM_ID })
+    .onConflictDoNothing()
+    .run();
   return db;
 }
 
@@ -144,6 +151,8 @@ describe("createDocument", () => {
         id: archivedIssueId,
         identifier: "TEST-998",
         title: "Archived Issue",
+        stateId: "status-default-team-backlog",
+        teamId: "default-team",
         archivedAt: now,
         createdAt: now,
         updatedAt: now,

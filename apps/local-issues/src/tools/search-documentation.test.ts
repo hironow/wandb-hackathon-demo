@@ -30,7 +30,16 @@ function cleanupDb(): void {
 function insertIssue(db: AppDatabase, id: string, title: string, description: string): void {
   const now = new Date().toISOString();
   db.insert(issues)
-    .values({ id, identifier: `TST-${id.slice(0, 4)}`, title, description, createdAt: now, updatedAt: now })
+    .values({
+      id,
+      identifier: `TST-${id.slice(0, 4)}`,
+      title,
+      description,
+      stateId: "status-default-team-backlog",
+      teamId: "default-team",
+      createdAt: now,
+      updatedAt: now,
+    })
     .run();
 }
 

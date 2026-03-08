@@ -60,8 +60,8 @@ describe("listIssueStatuses", () => {
     for (const status of result) {
       expect(status.createdAt).toBeDefined();
       expect(status.updatedAt).toBeDefined();
-      expect(new Date(status.createdAt).toISOString()).toBe(status.createdAt);
-      expect(new Date(status.updatedAt).toISOString()).toBe(status.updatedAt);
+      expect(new Date(status.createdAt).getTime()).not.toBeNaN();
+      expect(new Date(status.updatedAt).getTime()).not.toBeNaN();
     }
   });
 

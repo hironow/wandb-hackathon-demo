@@ -146,6 +146,7 @@ export const issues = sqliteTable(
     cycleId: text("cycle_id").references(() => cycles.id, {
       onDelete: "set null",
     }),
+    archivedAt: text("archived_at"),
     ...timestamps,
   },
   (table) => [
@@ -197,6 +198,7 @@ export const documents = sqliteTable("documents", {
   creatorId: text("creator_id").references(() => users.id, {
     onDelete: "set null",
   }),
+  archivedAt: text("archived_at"),
   ...timestamps,
 });
 

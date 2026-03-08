@@ -9,6 +9,7 @@ export function ensureTables(db: AppDatabase): void {
       name TEXT NOT NULL,
       key TEXT NOT NULL UNIQUE,
       icon TEXT,
+      archived_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -22,6 +23,7 @@ export function ensureTables(db: AppDatabase): void {
       display_name TEXT,
       active INTEGER NOT NULL DEFAULT 1,
       admin INTEGER NOT NULL DEFAULT 0,
+      team_id TEXT REFERENCES teams(id) ON DELETE SET NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -32,9 +34,9 @@ export function ensureTables(db: AppDatabase): void {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       type TEXT NOT NULL CHECK(type IN ('backlog', 'unstarted', 'started', 'completed', 'canceled')),
-      color TEXT NOT NULL,
-      position INTEGER NOT NULL,
-      team_id TEXT NOT NULL REFERENCES teams(id),
+      color TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -134,6 +136,7 @@ export function ensureTables(db: AppDatabase): void {
       project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
       parent_id TEXT REFERENCES issues(id) ON DELETE SET NULL,
       cycle_id TEXT REFERENCES cycles(id) ON DELETE SET NULL,
+      archived_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -221,6 +224,16 @@ export function ensureTables(db: AppDatabase): void {
       entity_type TEXT PRIMARY KEY,
       last_synced_at TEXT NOT NULL,
       cursor TEXT,
+      sync_status TEXT NOT NULL DEFAULT 'idle',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  sqlite.run(`
+    CREATE TABLE IF NOT EXISTS local_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )

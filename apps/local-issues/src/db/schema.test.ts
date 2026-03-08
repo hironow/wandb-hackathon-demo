@@ -420,6 +420,7 @@ function getCreateTableStatements(): string[] {
       "project_id" text REFERENCES "projects"("id") ON DELETE SET NULL,
       "parent_id" text REFERENCES "issues"("id") ON DELETE SET NULL,
       "cycle_id" text REFERENCES "cycles"("id") ON DELETE SET NULL,
+      "archived_at" text,
       "created_at" text DEFAULT (datetime('now')) NOT NULL,
       "updated_at" text DEFAULT (datetime('now')) NOT NULL
     )`,
@@ -433,6 +434,7 @@ function getCreateTableStatements(): string[] {
       "priority" integer DEFAULT 0 NOT NULL,
       "start_date" text,
       "target_date" text,
+      "archived_at" text,
       "lead_id" text REFERENCES "users"("id") ON DELETE SET NULL,
       "team_id" text REFERENCES "teams"("id") ON DELETE SET NULL,
       "created_at" text DEFAULT (datetime('now')) NOT NULL,
@@ -450,6 +452,7 @@ function getCreateTableStatements(): string[] {
       "name" text NOT NULL,
       "description" text,
       "target_date" text,
+      "sort_order" integer DEFAULT 0 NOT NULL,
       "project_id" text NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
       "created_at" text DEFAULT (datetime('now')) NOT NULL,
       "updated_at" text DEFAULT (datetime('now')) NOT NULL
@@ -464,6 +467,7 @@ function getCreateTableStatements(): string[] {
       "project_id" text REFERENCES "projects"("id") ON DELETE SET NULL,
       "issue_id" text REFERENCES "issues"("id") ON DELETE SET NULL,
       "creator_id" text REFERENCES "users"("id") ON DELETE SET NULL,
+      "archived_at" text,
       "created_at" text DEFAULT (datetime('now')) NOT NULL,
       "updated_at" text DEFAULT (datetime('now')) NOT NULL
     )`,
@@ -490,8 +494,9 @@ function getCreateTableStatements(): string[] {
       "id" text PRIMARY KEY NOT NULL,
       "number" integer NOT NULL,
       "name" text,
-      "starts_at" text NOT NULL,
-      "ends_at" text NOT NULL,
+      "starts_at" text,
+      "ends_at" text,
+      "completed_at" text,
       "team_id" text NOT NULL REFERENCES "teams"("id") ON DELETE CASCADE,
       "created_at" text DEFAULT (datetime('now')) NOT NULL,
       "updated_at" text DEFAULT (datetime('now')) NOT NULL
