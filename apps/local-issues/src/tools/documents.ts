@@ -4,6 +4,8 @@ import type { AppDatabase } from "../db/client.ts";
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 250;
+const MAX_SLUG_LENGTH = 128;
+const MAX_CONTENT_BYTES = 1_048_576; // 1MB
 
 // ── Types ──
 
@@ -91,8 +93,23 @@ function toSlug(title: string): string {
   return slug || "untitled";
 }
 
+function truncateSlug(slug: string): string {
+  if (slug.length <= MAX_SLUG_LENGTH) return slug;
+  return slug.slice(0, MAX_SLUG_LENGTH).replace(/-$/, "");
+}
+
+function validateContentSize(content: string): void {
+  const byteLength = new TextEncoder().encode(content).length;
+  if (byteLength > MAX_CONTENT_BYTES) {
+    throw new Error(
+      `Content exceeds 1MB limit (${byteLength} bytes)`,
+    );
+  }
+}
+
 function resolveUniqueSlug(db: AppDatabase, baseSlug: string, excludeId?: string): string {
-  let candidate = baseSlug;
+  const truncatedBase = truncateSlug(baseSlug);
+  let candidate = truncatedBase;
   let suffix = 0;
 
   while (true) {
@@ -107,7 +124,9 @@ function resolveUniqueSlug(db: AppDatabase, baseSlug: string, excludeId?: string
     }
 
     suffix++;
-    candidate = `${baseSlug}-${suffix}`;
+    const suffixStr = `-${suffix}`;
+    const maxBaseLen = MAX_SLUG_LENGTH - suffixStr.length;
+    candidate = `${truncatedBase.slice(0, maxBaseLen)}${suffixStr}`;
   }
 }
 
@@ -116,6 +135,10 @@ function resolveUniqueSlug(db: AppDatabase, baseSlug: string, excludeId?: string
 export function createDocument(db: AppDatabase, params: CreateDocumentParams): Document {
   if (!params.title || params.title.trim() === "") {
     throw new Error("Title is required");
+  }
+
+  if (params.content !== undefined) {
+    validateContentSize(params.content);
   }
 
   if (params.project) {
@@ -215,6 +238,10 @@ export function updateDocument(db: AppDatabase, params: UpdateDocumentParams): D
   const existing = db.select().from(documents).where(eq(documents.id, params.id)).get();
   if (!existing) {
     throw new Error(`Document not found: ${params.id}`);
+  }
+
+  if (params.content !== undefined) {
+    validateContentSize(params.content);
   }
 
   const updates: Record<string, unknown> = {

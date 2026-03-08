@@ -390,6 +390,17 @@ describe("updateDocument", () => {
       updateDocument(db, { id: doc.id, issue: "nonexistent-issue" }),
     ).toThrow(/issue.*not found/i);
   });
+
+  test("throws when content exceeds 1MB", () => {
+    // given
+    const doc = createDocument(db, { title: "Big Doc" });
+    const bigContent = "a".repeat(1_048_577); // 1MB + 1 byte
+
+    // when / then
+    expect(() => updateDocument(db, { id: doc.id, content: bigContent })).toThrow(
+      /content.*exceeds.*1MB/i,
+    );
+  });
 });
 
 // ── toSlug (non-ASCII support) ──
@@ -444,5 +455,88 @@ describe("slug generation", () => {
 
     // then
     expect(doc.slug).toBe("a-b");
+  });
+
+  test("truncates slug to 128 characters for long titles", () => {
+    // given
+    const longTitle = "a".repeat(200);
+
+    // when
+    const doc = createDocument(db, { title: longTitle });
+
+    // then
+    expect(doc.slug.length).toBeLessThanOrEqual(128);
+  });
+
+  test("truncates slug with suffix to 128 characters on collision", () => {
+    // given
+    const longTitle = "b".repeat(200);
+    createDocument(db, { title: longTitle });
+
+    // when
+    const doc2 = createDocument(db, { title: longTitle });
+
+    // then
+    expect(doc2.slug.length).toBeLessThanOrEqual(128);
+    expect(doc2.slug).toMatch(/-1$/);
+  });
+
+  test("updateDocument truncates slug to 128 characters", () => {
+    // given
+    const doc = createDocument(db, { title: "Short" });
+    const longTitle = "c".repeat(200);
+
+    // when
+    const updated = updateDocument(db, { id: doc.id, title: longTitle });
+
+    // then
+    expect(updated.slug.length).toBeLessThanOrEqual(128);
+  });
+});
+
+// ── content size limit ──
+
+describe("content size limit", () => {
+  let db: AppDatabase;
+
+  beforeEach(() => {
+    cleanupDb();
+    db = setupTestDb();
+  });
+
+  afterEach(() => {
+    cleanupDb();
+  });
+
+  test("createDocument throws when content exceeds 1MB", () => {
+    // given
+    const bigContent = "a".repeat(1_048_577); // 1MB + 1 byte
+
+    // when / then
+    expect(() => createDocument(db, { title: "Big Doc", content: bigContent })).toThrow(
+      /content.*exceeds.*1MB/i,
+    );
+  });
+
+  test("createDocument allows content exactly 1MB", () => {
+    // given
+    const exactContent = "a".repeat(1_048_576); // exactly 1MB
+
+    // when
+    const doc = createDocument(db, { title: "Exact 1MB" , content: exactContent });
+
+    // then
+    expect(doc.content).toBe(exactContent);
+  });
+
+  test("content size is checked in UTF-8 bytes (multibyte chars)", () => {
+    // given: each CJK character is 3 bytes in UTF-8
+    // 349,526 chars * 3 bytes = 1,048,578 bytes > 1MB
+    const multibyteContent = "\u3042".repeat(349_526);
+
+    // when / then
+    expect(() => createDocument(db, { title: "CJK Doc", content: multibyteContent })).toThrow(
+      /content.*exceeds.*1MB/i,
+    );
   });
 });
