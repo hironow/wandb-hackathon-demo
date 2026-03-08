@@ -1,4 +1,4 @@
-import { eq, or, like, desc, sql } from "drizzle-orm";
+import { eq, or, like, desc, sql, gte } from "drizzle-orm";
 import { users, localConfig, teams } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 import type {
@@ -60,6 +60,14 @@ export function listUsers(
       // Team not found — return empty result
       return { nodes: [], pageInfo: { hasNextPage: false } };
     }
+  }
+
+  // Date filters
+  if (params.createdAt) {
+    query = query.where(gte(users.createdAt, params.createdAt)) as typeof query;
+  }
+  if (params.updatedAt) {
+    query = query.where(gte(users.updatedAt, params.updatedAt)) as typeof query;
   }
 
   // Cursor-based pagination (DESC order)

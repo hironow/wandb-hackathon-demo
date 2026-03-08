@@ -39,8 +39,11 @@ describe("seed", () => {
 
     // then
     const result = db.select().from(teams).all();
-    expect(result).toHaveLength(1);
-    expect(result[0]!.name).toBe("Default Team");
+    expect(result).toHaveLength(2);
+    const names = result.map((t) => t.name).sort();
+    expect(names).toEqual(["Archived Team", "Default Team"]);
+    const archived = result.find((t) => t.name === "Archived Team");
+    expect(archived!.archivedAt).toBe("2025-01-01T00:00:00");
   });
 
   test("creates default workflow statuses", () => {
@@ -100,7 +103,7 @@ describe("seed", () => {
 
     // then
     const teamCount = db.select().from(teams).all();
-    expect(teamCount).toHaveLength(1);
+    expect(teamCount).toHaveLength(2);
 
     const userCount = db.select().from(users).all();
     expect(userCount).toHaveLength(2);

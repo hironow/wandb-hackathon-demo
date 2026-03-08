@@ -56,6 +56,8 @@ export function registerUsersTools(server: McpServer, db: AppDatabase): void {
       cursor: z.string().optional().describe("Pagination cursor"),
       limit: z.number().min(1).max(250).optional().describe("Max results (default 50, max 250)"),
       orderBy: z.enum(["createdAt", "updatedAt"]).optional().describe("Sort field"),
+      createdAt: z.string().optional().describe("Created after: ISO-8601 date/duration"),
+      updatedAt: z.string().optional().describe("Updated after: ISO-8601 date/duration"),
     },
     (params) => {
       const result = listUsers(db, params);
