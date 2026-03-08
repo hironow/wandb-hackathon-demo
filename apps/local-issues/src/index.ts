@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { createDb, type AppDatabase } from "./db/client.ts";
-import { ensureTables } from "./db/migrate.ts";
+import { ensureTables, ensureFtsTables } from "./db/migrate.ts";
 import { seedAll } from "./db/seed.ts";
 import { listIssueStatuses, getIssueStatus } from "./tools/issue-statuses.ts";
 import { listIssueLabels, createIssueLabel } from "./tools/issue-labels.ts";
@@ -14,6 +14,9 @@ import { saveMilestone, getMilestone, listMilestones } from "./tools/milestones.
 import { saveComment, listComments, deleteComment } from "./tools/comments.ts";
 import { createAttachment, getAttachment, deleteAttachment } from "./tools/attachments.ts";
 import { registerTeamsTools, registerUsersTools } from "./tools/register.ts";
+import { listCycles } from "./tools/cycles.ts";
+import { extractImages } from "./tools/extract-images.ts";
+import { searchDocumentation, rebuildSearchIndex } from "./tools/search-documentation.ts";
 
 const VERSION = "0.1.0";
 const DEFAULT_PORT = 3100;
@@ -463,6 +466,60 @@ function registerTools(server: McpServer, db: AppDatabase): void {
       }
     },
   );
+
+  // ── Cycles ──
+
+  server.tool(
+    "list_cycles",
+    "List cycles for a team with optional type filter (current, previous, next)",
+    {
+      teamId: z.string().describe("Team ID to filter cycles"),
+      type: z.optional(z.enum(["current", "previous", "next"])).describe("Filter by cycle type"),
+    },
+    async (params) => {
+      try {
+        const result = listCycles(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  // ── Extract Images ──
+
+  server.tool(
+    "extract_images",
+    "Extract image URLs and alt text from markdown content",
+    {
+      markdown: z.string().describe("Markdown content to extract images from"),
+    },
+    async (params) => {
+      const result = extractImages(params.markdown);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  // ── Search Documentation ──
+
+  server.tool(
+    "search_documentation",
+    "Full-text search across issues and documents",
+    {
+      query: z.string().describe("Search query"),
+      page: z.optional(z.number().min(1)).describe("Page number (default 1)"),
+    },
+    async (params) => {
+      try {
+        const result = searchDocumentation(db, params.query, params.page);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
 }
 
 function createMcpServer(db: AppDatabase): McpServer {
@@ -480,7 +537,9 @@ async function main(): Promise<void> {
   const port = getPort();
   const db = createDb();
   ensureTables(db);
+  ensureFtsTables(db);
   seedAll(db);
+  rebuildSearchIndex(db);
   const mcpServer = createMcpServer(db);
   registerTeamsTools(mcpServer, db);
   registerUsersTools(mcpServer, db);

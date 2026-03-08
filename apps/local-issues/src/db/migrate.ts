@@ -65,13 +65,16 @@ export function ensureTables(db: AppDatabase): void {
       id TEXT PRIMARY KEY,
       number INTEGER NOT NULL,
       name TEXT,
-      starts_at TEXT NOT NULL,
-      ends_at TEXT NOT NULL,
+      starts_at TEXT,
+      ends_at TEXT,
+      completed_at TEXT,
       team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
+
+  sqlite.run(`CREATE INDEX IF NOT EXISTS idx_cycles_team ON cycles(team_id)`);
 
   sqlite.run(`
     CREATE TABLE IF NOT EXISTS projects (
@@ -205,10 +208,13 @@ export function ensureTables(db: AppDatabase): void {
       project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
       issue_id TEXT REFERENCES issues(id) ON DELETE SET NULL,
       creator_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      archived_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
+
+  sqlite.run(`CREATE INDEX IF NOT EXISTS idx_documents_slug ON documents(slug)`);
 
   sqlite.run(`
     CREATE TABLE IF NOT EXISTS sync_metadata (
@@ -217,6 +223,20 @@ export function ensureTables(db: AppDatabase): void {
       cursor TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+}
+
+export function ensureFtsTables(db: AppDatabase): void {
+  const sqlite = (db as unknown as { $client: { run: (sql: string) => void } }).$client;
+
+  sqlite.run(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+      title,
+      content,
+      source_type,
+      source_id UNINDEXED,
+      tokenize = 'porter'
     )
   `);
 }

@@ -88,8 +88,9 @@ export const cycles = sqliteTable("cycles", {
   id: text("id").primaryKey(),
   number: integer("number").notNull(),
   name: text("name"),
-  startsAt: text("starts_at").notNull(),
-  endsAt: text("ends_at").notNull(),
+  startsAt: text("starts_at"),
+  endsAt: text("ends_at"),
+  completedAt: text("completed_at"),
   teamId: text("team_id")
     .notNull()
     .references(() => teams.id, { onDelete: "cascade" }),
