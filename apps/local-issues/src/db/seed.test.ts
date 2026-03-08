@@ -3,7 +3,7 @@ import { existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { createDb } from "./client.ts";
 import { seed } from "./seed.ts";
-import { teams, users, issueStatuses } from "./schema.ts";
+import { teams, users, issueStatuses, localConfig } from "./schema.ts";
 import { eq } from "drizzle-orm";
 
 const TEST_DB_PATH = ".run/test-seed.db";
@@ -28,7 +28,6 @@ describe("seed", () => {
     cleanup();
     ensureDir(TEST_DB_PATH);
     db = createDb(TEST_DB_PATH);
-    // Apply migration via raw SQL for test isolation
     applySchema(db);
   });
 
@@ -68,6 +67,32 @@ describe("seed", () => {
     expect(done[0]!.type).toBe("completed");
   });
 
+  test("creates two seed users", () => {
+    // when
+    seed(db);
+
+    // then
+    const result = db.select().from(users).all();
+    expect(result).toHaveLength(2);
+
+    const names = result.map((u) => u.name).sort();
+    expect(names).toEqual(["Default User", "Second User"]);
+  });
+
+  test("sets default_user_id in local_config", () => {
+    // when
+    seed(db);
+
+    // then
+    const config = db
+      .select()
+      .from(localConfig)
+      .where(eq(localConfig.key, "default_user_id"))
+      .all();
+    expect(config).toHaveLength(1);
+    expect(config[0]!.value).toBe("default-user");
+  });
+
   test("is idempotent — running twice produces same result", () => {
     // when
     seed(db);
@@ -77,8 +102,14 @@ describe("seed", () => {
     const teamCount = db.select().from(teams).all();
     expect(teamCount).toHaveLength(1);
 
+    const userCount = db.select().from(users).all();
+    expect(userCount).toHaveLength(2);
+
     const statusCount = db.select().from(issueStatuses).all();
     expect(statusCount).toHaveLength(5);
+
+    const configCount = db.select().from(localConfig).all();
+    expect(configCount).toHaveLength(1);
   });
 });
 
@@ -109,6 +140,12 @@ function applySchema(db: ReturnType<typeof createDb>): void {
       "color" text,
       "position" integer DEFAULT 0 NOT NULL,
       "team_id" text NOT NULL REFERENCES "teams"("id") ON DELETE CASCADE,
+      "created_at" text DEFAULT (datetime('now')) NOT NULL,
+      "updated_at" text DEFAULT (datetime('now')) NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS "local_config" (
+      "key" text PRIMARY KEY NOT NULL,
+      "value" text NOT NULL,
       "created_at" text DEFAULT (datetime('now')) NOT NULL,
       "updated_at" text DEFAULT (datetime('now')) NOT NULL
     )`,

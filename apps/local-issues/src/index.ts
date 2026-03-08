@@ -13,6 +13,7 @@ import { saveProject, getProject, listProjects, listProjectLabels, createProject
 import { saveMilestone, getMilestone, listMilestones } from "./tools/milestones.ts";
 import { saveComment, listComments, deleteComment } from "./tools/comments.ts";
 import { createAttachment, getAttachment, deleteAttachment } from "./tools/attachments.ts";
+import { registerTeamsTools, registerUsersTools } from "./tools/register.ts";
 
 const VERSION = "0.1.0";
 const DEFAULT_PORT = 3100;
@@ -470,6 +471,8 @@ async function main(): Promise<void> {
   ensureTables(db);
   seedAll(db);
   const mcpServer = createMcpServer(db);
+  registerTeamsTools(mcpServer, db);
+  registerUsersTools(mcpServer, db);
 
   const httpServer = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://localhost:${port}`);

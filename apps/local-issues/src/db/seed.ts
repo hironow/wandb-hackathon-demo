@@ -1,13 +1,28 @@
-import { teams, issueStatuses } from "./schema.ts";
+import { teams, users, issueStatuses, localConfig } from "./schema.ts";
 import type { AppDatabase } from "./client.ts";
 
 const DEFAULT_TEAM_ID = "default-team";
+const DEFAULT_USER_ID = "default-user";
+const SECOND_USER_ID = "default-user-2";
 
 const SEED_TEAM = {
   id: DEFAULT_TEAM_ID,
   name: "Default Team",
   key: "DEF",
 } as const;
+
+const SEED_USERS = [
+  {
+    id: DEFAULT_USER_ID,
+    name: "Default User",
+    email: "user@local-issues.localhost",
+  },
+  {
+    id: SECOND_USER_ID,
+    name: "Second User",
+    email: "user2@local-issues.localhost",
+  },
+] as const;
 
 interface DefaultStatus {
   name: string;
@@ -28,6 +43,12 @@ export function seedDefaultTeam(db: AppDatabase): void {
   db.insert(teams).values(SEED_TEAM).onConflictDoNothing().run();
 }
 
+export function seedDefaultUsers(db: AppDatabase): void {
+  for (const user of SEED_USERS) {
+    db.insert(users).values(user).onConflictDoNothing().run();
+  }
+}
+
 export function seedDefaultStatuses(db: AppDatabase, teamId: string = DEFAULT_TEAM_ID): void {
   for (const status of DEFAULT_STATUSES) {
     db.insert(issueStatuses)
@@ -42,10 +63,17 @@ export function seedDefaultStatuses(db: AppDatabase, teamId: string = DEFAULT_TE
       .onConflictDoNothing()
       .run();
   }
+
+  // Set default "me" user in local_config
+  db.insert(localConfig)
+    .values({ key: "default_user_id", value: DEFAULT_USER_ID })
+    .onConflictDoNothing()
+    .run();
 }
 
 export function seedAll(db: AppDatabase): void {
   seedDefaultTeam(db);
+  seedDefaultUsers(db);
   seedDefaultStatuses(db);
 }
 
