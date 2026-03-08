@@ -18,10 +18,8 @@ services:
       # Required environment variables:
       # - MCP_PORT: HTTP server port (default: 8834)
       # - LOCAL_ISSUES_DB_PATH: SQLite database file path (default: /app/.run/local-issues.db)
-      # - LOG_LEVEL: Logging verbosity (default: info)
       MCP_PORT: "8834"
       LOCAL_ISSUES_DB_PATH: /app/.run/local-issues.db
-      LOG_LEVEL: info
     volumes:
       - local-issues-data:/app/.run
     read_only: true
