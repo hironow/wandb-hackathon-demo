@@ -267,6 +267,15 @@ export const issueRelations = sqliteTable(
   ],
 );
 
+// ── Team Sequences ────────────────────────────────
+
+export const teamSequences = sqliteTable("team_sequences", {
+  teamId: text("team_id")
+    .primaryKey()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  nextNumber: integer("next_number").notNull().default(1),
+});
+
 // ── Local Config ──────────────────────────────────
 
 export const localConfig = sqliteTable("local_config", {

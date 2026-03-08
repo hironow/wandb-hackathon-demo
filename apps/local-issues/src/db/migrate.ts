@@ -158,6 +158,13 @@ export function ensureTables(db: AppDatabase): void {
   `);
 
   sqlite.run(`
+    CREATE TABLE IF NOT EXISTS team_sequences (
+      team_id TEXT PRIMARY KEY REFERENCES teams(id) ON DELETE CASCADE,
+      next_number INTEGER NOT NULL DEFAULT 1
+    )
+  `);
+
+  sqlite.run(`
     CREATE TABLE IF NOT EXISTS comments (
       id TEXT PRIMARY KEY,
       body TEXT NOT NULL,

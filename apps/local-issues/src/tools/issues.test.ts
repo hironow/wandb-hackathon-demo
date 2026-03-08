@@ -96,6 +96,25 @@ describe("saveIssue (create)", () => {
     expect(issue2.identifier).toBe("DEF-2");
   });
 
+  test("auto-increments identifier correctly beyond seq 9 (MY-383)", () => {
+    // given - create 11 issues to go past single-digit sequence numbers
+    const created: string[] = [];
+    for (let i = 1; i <= 11; i++) {
+      const issue = saveIssue(db, { title: `Issue ${i}`, team: DEFAULT_TEAM_ID });
+      created.push(issue.identifier);
+    }
+
+    // then - all identifiers must be unique and correctly numbered
+    expect(created).toEqual([
+      "DEF-1", "DEF-2", "DEF-3", "DEF-4", "DEF-5",
+      "DEF-6", "DEF-7", "DEF-8", "DEF-9", "DEF-10", "DEF-11",
+    ]);
+
+    // verify no duplicates
+    const unique = new Set(created);
+    expect(unique.size).toBe(11);
+  });
+
   test("creates an issue with a specific state", () => {
     // when
     const issue = saveIssue(db, {
