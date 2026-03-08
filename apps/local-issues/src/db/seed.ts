@@ -60,6 +60,7 @@ export function seedDefaultUsers(db: AppDatabase): void {
 }
 
 export function seedDefaultStatuses(db: AppDatabase, teamId: string = DEFAULT_TEAM_ID): void {
+  const now = new Date().toISOString();
   for (const status of DEFAULT_STATUSES) {
     db.insert(issueStatuses)
       .values({
@@ -69,6 +70,8 @@ export function seedDefaultStatuses(db: AppDatabase, teamId: string = DEFAULT_TE
         color: status.color,
         position: status.position,
         teamId,
+        createdAt: now,
+        updatedAt: now,
       })
       .onConflictDoNothing()
       .run();

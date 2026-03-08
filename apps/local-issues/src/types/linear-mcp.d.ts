@@ -85,6 +85,8 @@ export interface IssueStatus {
   color: string;
   position: number;
   teamId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ── Issue Labels ──
