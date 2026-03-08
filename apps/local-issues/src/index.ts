@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "node:http";
+import { sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { createDb, type AppDatabase } from "./db/client.ts";
 import { ensureTables } from "./db/migrate.ts";
@@ -475,8 +476,15 @@ async function main(): Promise<void> {
 
     // Health check endpoint
     if (url.pathname === "/healthz" && req.method === "GET") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", version: VERSION }));
+      try {
+        // Verify DB is accessible by running a simple query
+        db.run(sql`SELECT 1`);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ status: "ok", version: VERSION }));
+      } catch {
+        res.writeHead(503, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ status: "error", version: VERSION }));
+      }
       return;
     }
 
