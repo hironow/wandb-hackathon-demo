@@ -74,6 +74,7 @@ function registerTools(server: McpServer, db: AppDatabase): void {
     {
       name: z.optional(z.string()).describe("Filter by label name"),
       team: z.optional(z.string()).describe("Filter by team ID"),
+      cursor: z.optional(z.string()).describe("Next page cursor"),
       limit: z.optional(z.number()).describe("Max results (default 50, max 250)"),
       orderBy: z.optional(z.enum(["createdAt", "updatedAt"])).describe("Sort order"),
     },

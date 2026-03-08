@@ -12,6 +12,20 @@ const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 250;
 const DEFAULT_COLOR = "#6b7280";
 
+function decodeCursor(cursor: string): number {
+  try {
+    const decoded = atob(cursor);
+    const offset = parseInt(decoded, 10);
+    return Number.isNaN(offset) || offset < 0 ? 0 : offset;
+  } catch {
+    return 0;
+  }
+}
+
+function encodeCursor(offset: number): string {
+  return btoa(String(offset));
+}
+
 export function listIssueLabels(
   db: AppDatabase,
   params: ListIssueLabelsParams,
@@ -26,6 +40,7 @@ export function listIssueLabels(
   }
 
   const limit = Math.min(params.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
+  const offset = params.cursor ? decodeCursor(params.cursor) : 0;
 
   const orderColumn =
     params.orderBy === "createdAt" ? issueLabels.createdAt : issueLabels.updatedAt;
@@ -36,13 +51,15 @@ export function listIssueLabels(
     .from(issueLabels)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(orderFn(orderColumn))
+    .offset(offset)
     .limit(limit + 1)
     .all();
 
   const hasNextPage = rows.length > limit;
   const items = (hasNextPage ? rows.slice(0, limit) : rows).map(toIssueLabel);
+  const nextCursor = hasNextPage ? encodeCursor(offset + limit) : undefined;
 
-  return { items, hasNextPage };
+  return { items, hasNextPage, cursor: nextCursor };
 }
 
 export function createIssueLabel(
