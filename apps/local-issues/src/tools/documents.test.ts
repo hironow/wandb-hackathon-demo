@@ -619,6 +619,29 @@ describe("slug generation", () => {
     expect(doc.slug).toBe("a-b");
   });
 
+  test("allows slug exactly 128 characters without truncation", () => {
+    // given: 128 lowercase ASCII chars produce a 128-char slug
+    const title128 = "a".repeat(128);
+
+    // when
+    const doc = createDocument(db, { title: title128 });
+
+    // then
+    expect(doc.slug.length).toBe(128);
+    expect(doc.slug).toBe("a".repeat(128));
+  });
+
+  test("truncates slug from 129 characters to 128", () => {
+    // given: 129 lowercase ASCII chars would produce a 129-char slug
+    const title129 = "a".repeat(129);
+
+    // when
+    const doc = createDocument(db, { title: title129 });
+
+    // then
+    expect(doc.slug.length).toBe(128);
+  });
+
   test("truncates slug to 128 characters for long titles", () => {
     // given
     const longTitle = "a".repeat(200);
