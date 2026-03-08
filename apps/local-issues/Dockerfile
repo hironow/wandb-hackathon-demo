@@ -1,12 +1,19 @@
 # Stage 1: Install dependencies and build
 FROM oven/bun:1-alpine AS build
 WORKDIR /app
+
+# Copy workspace root files for Bun workspace resolution
 COPY package.json bun.lock ./
+COPY apps/local-issues/package.json apps/local-issues/
+
+# Install dependencies using workspace lockfile
 RUN bun install --frozen-lockfile
-COPY src/ src/
-COPY tsconfig.json ./
-COPY drizzle.config.ts ./
-COPY drizzle/ drizzle/
+
+# Copy application source
+WORKDIR /app/apps/local-issues
+COPY apps/local-issues/src/ src/
+COPY apps/local-issues/tsconfig.json ./
+COPY apps/local-issues/drizzle.config.ts ./
 RUN bun build --compile --minify src/index.ts --outfile server
 
 # Stage 2: Runtime (minimal Alpine)
@@ -20,9 +27,8 @@ RUN apk add --no-cache libgcc libstdc++
 RUN addgroup -g 1001 appuser && \
     adduser -u 1001 -G appuser -s /bin/false -D appuser
 
-# Copy compiled binary and drizzle migrations
-COPY --from=build /app/server ./server
-COPY --from=build /app/drizzle drizzle/
+# Copy compiled binary
+COPY --from=build /app/apps/local-issues/server ./server
 
 # Copy entrypoint script for umask and permission enforcement
 COPY docker-entrypoint.sh ./docker-entrypoint.sh

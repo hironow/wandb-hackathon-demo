@@ -6,8 +6,8 @@
 services:
   local-issues-mcp:
     build:
-      context: ./apps/local-issues
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/local-issues/Dockerfile
       args:
         BUILDKIT_INLINE_CACHE: "1"
       cache_from:

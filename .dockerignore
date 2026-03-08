@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/.run
+**/*.db
+**/*.db-wal
+**/*.db-shm
+**/tests
+.expedition
+.gate
+.phonewave
+.siren
+.git
+.gitignore
+phonewave.yaml
