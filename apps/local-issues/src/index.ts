@@ -224,6 +224,7 @@ function registerTools(server: McpServer, db: AppDatabase): void {
       lead: z.optional(z.string()).describe("Lead user ID"),
       startDate: z.optional(z.string()).describe("Start date (YYYY-MM-DD)"),
       targetDate: z.optional(z.string()).describe("Target date (YYYY-MM-DD)"),
+      archived: z.optional(z.boolean()).describe("Set true to archive, false to unarchive"),
     },
     async (params) => {
       try {

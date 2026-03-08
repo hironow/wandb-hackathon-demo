@@ -1,4 +1,4 @@
-import { eq, and, like, desc, asc } from "drizzle-orm";
+import { eq, and, like, desc, asc, isNull } from "drizzle-orm";
 import { projects, projectLabels } from "../db/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
 import type {
@@ -21,7 +21,7 @@ const STATE_TRANSITIONS: Record<string, string[]> = {
   started: ["paused", "completed", "canceled"],
   paused: ["started", "canceled"],
   completed: ["started"],
-  canceled: [],
+  canceled: ["planned"],
 };
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -50,6 +50,7 @@ function toProject(row: typeof projects.$inferSelect): Project {
     state: row.state,
     icon: row.icon ?? undefined,
     color: row.color ?? undefined,
+    archivedAt: row.archivedAt ?? undefined,
     url: `local://projects/${row.id}`,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -167,6 +168,10 @@ function updateProject(db: AppDatabase, params: SaveProjectParams): Project {
     updates.state = params.state;
   }
 
+  if (params.archived !== undefined) {
+    updates.archivedAt = params.archived ? new Date().toISOString() : null;
+  }
+
   db.update(projects).set(updates).where(eq(projects.id, params.id!)).run();
 
   const updated = db.select().from(projects).where(eq(projects.id, params.id!)).get();
@@ -202,6 +207,10 @@ export function listProjects(
 
   if (params.query) {
     conditions.push(like(projects.name, `%${params.query}%`));
+  }
+
+  if (!params.includeArchived) {
+    conditions.push(isNull(projects.archivedAt));
   }
 
   const limit = Math.min(params.limit ?? DEFAULT_LIMIT, MAX_LIMIT);

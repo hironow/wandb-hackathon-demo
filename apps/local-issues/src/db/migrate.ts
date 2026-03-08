@@ -73,28 +73,11 @@ export function ensureTables(db: AppDatabase): void {
       description TEXT,
       icon TEXT,
       color TEXT,
-      state TEXT NOT NULL DEFAULT 'planned',
-      priority INTEGER NOT NULL DEFAULT 0,
-      start_date TEXT,
-      target_date TEXT,
-      lead_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-      team_id TEXT REFERENCES teams(id) ON DELETE SET NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
-
-  sqlite.run(`
-    CREATE TABLE IF NOT EXISTS projects (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      description TEXT,
-      icon TEXT,
-      color TEXT,
       state TEXT NOT NULL DEFAULT 'planned' CHECK(state IN ('planned', 'started', 'paused', 'completed', 'canceled')),
       priority INTEGER NOT NULL DEFAULT 0,
       start_date TEXT,
       target_date TEXT,
+      archived_at TEXT,
       lead_id TEXT REFERENCES users(id) ON DELETE SET NULL,
       team_id TEXT REFERENCES teams(id) ON DELETE SET NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),

@@ -102,6 +102,7 @@ export const projects = sqliteTable("projects", {
   priority: integer("priority").notNull().default(0),
   startDate: text("start_date"),
   targetDate: text("target_date"),
+  archivedAt: text("archived_at"),
   leadId: text("lead_id").references(() => users.id, { onDelete: "set null" }),
   teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
   ...timestamps,
