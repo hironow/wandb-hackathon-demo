@@ -281,12 +281,23 @@ describe("listDocuments", () => {
     expect(result.hasNextPage).toBe(true);
   });
 
-  test("caps limit at 250", () => {
+  test("caps limit at 100", () => {
     // given
     createDocument(db, { title: "Single" });
 
     // when
     const result = listDocuments(db, { limit: 500 });
+
+    // then
+    expect(result.items).toHaveLength(1);
+  });
+
+  test("falls back to default limit when limit=0", () => {
+    // given
+    createDocument(db, { title: "Doc" });
+
+    // when
+    const result = listDocuments(db, { limit: 0 });
 
     // then
     expect(result.items).toHaveLength(1);
@@ -314,6 +325,28 @@ describe("listDocuments", () => {
     expect(secondPage.items).toHaveLength(2);
     expect(secondPage.items[0]!.id).not.toBe(firstPage.items[0]!.id);
     expect(secondPage.items[0]!.id).not.toBe(firstPage.items[1]!.id);
+  });
+
+  test("throws on invalid cursor (Base64 decode failure)", () => {
+    // given
+    createDocument(db, { title: "Doc" });
+
+    // when / then
+    expect(() => {
+      listDocuments(db, { cursor: "not-valid-base64!!!" });
+    }).toThrow("Invalid cursor");
+  });
+
+  test("returns null cursor when hasNextPage is false", () => {
+    // given
+    createDocument(db, { title: "Only Doc" });
+
+    // when
+    const result = listDocuments(db, {});
+
+    // then
+    expect(result.hasNextPage).toBe(false);
+    expect(result.cursor).toBeUndefined();
   });
 
   test("filters by createdAt (ISO-8601 date)", () => {
