@@ -1,18 +1,22 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { createDb } from "./client.ts";
-import { seed } from "./seed.ts";
+import { createDb, type AppDatabase } from "./client.ts";
+import { ensureTables } from "./migrate.ts";
+import { seed, seedAll, isSeedCompleted } from "./seed.ts";
 import { teams, users, issueStatuses, localConfig } from "./schema.ts";
 import { eq } from "drizzle-orm";
 
 const TEST_DB_PATH = ".run/test-seed.db";
 
-function ensureDir(path: string): void {
-  mkdirSync(dirname(path), { recursive: true });
+function setupTestDb(): AppDatabase {
+  mkdirSync(dirname(TEST_DB_PATH), { recursive: true });
+  const db = createDb(TEST_DB_PATH);
+  ensureTables(db);
+  return db;
 }
 
-function cleanup(): void {
+function cleanupDb(): void {
   for (const suffix of ["", "-wal", "-shm"]) {
     const file = TEST_DB_PATH + suffix;
     if (existsSync(file)) {
@@ -22,18 +26,16 @@ function cleanup(): void {
 }
 
 describe("seed", () => {
-  let db: ReturnType<typeof createDb>;
+  let db: AppDatabase;
 
   beforeEach(() => {
-    cleanup();
-    ensureDir(TEST_DB_PATH);
-    db = createDb(TEST_DB_PATH);
-    applySchema(db);
+    cleanupDb();
+    db = setupTestDb();
   });
 
-  afterEach(cleanup);
+  afterEach(cleanupDb);
 
-  test("creates default team", () => {
+  test("creates default team and archived team", () => {
     // when
     seed(db);
 
@@ -114,48 +116,29 @@ describe("seed", () => {
     const configCount = db.select().from(localConfig).all();
     expect(configCount).toHaveLength(1);
   });
-});
 
-function applySchema(db: ReturnType<typeof createDb>): void {
-  const statements = [
-    `CREATE TABLE IF NOT EXISTS "teams" (
-      "id" text PRIMARY KEY NOT NULL,
-      "name" text NOT NULL,
-      "key" text NOT NULL,
-      "icon" text,
-      "archived_at" text,
-      "created_at" text DEFAULT (datetime('now')) NOT NULL,
-      "updated_at" text DEFAULT (datetime('now')) NOT NULL
-    )`,
-    `CREATE TABLE IF NOT EXISTS "users" (
-      "id" text PRIMARY KEY NOT NULL,
-      "name" text NOT NULL,
-      "email" text NOT NULL,
-      "display_name" text,
-      "active" integer DEFAULT 1 NOT NULL,
-      "admin" integer DEFAULT 0 NOT NULL,
-      "team_id" text REFERENCES "teams"("id") ON DELETE SET NULL,
-      "created_at" text DEFAULT (datetime('now')) NOT NULL,
-      "updated_at" text DEFAULT (datetime('now')) NOT NULL
-    )`,
-    `CREATE TABLE IF NOT EXISTS "issue_statuses" (
-      "id" text PRIMARY KEY NOT NULL,
-      "name" text NOT NULL,
-      "type" text NOT NULL,
-      "color" text,
-      "position" integer DEFAULT 0 NOT NULL,
-      "team_id" text NOT NULL REFERENCES "teams"("id") ON DELETE CASCADE,
-      "created_at" text DEFAULT (datetime('now')) NOT NULL,
-      "updated_at" text DEFAULT (datetime('now')) NOT NULL
-    )`,
-    `CREATE TABLE IF NOT EXISTS "local_config" (
-      "key" text PRIMARY KEY NOT NULL,
-      "value" text NOT NULL,
-      "created_at" text DEFAULT (datetime('now')) NOT NULL,
-      "updated_at" text DEFAULT (datetime('now')) NOT NULL
-    )`,
-  ];
-  for (const stmt of statements) {
-    db.run(stmt);
-  }
-}
+  test("records seed completion in metadata", () => {
+    // given
+    expect(isSeedCompleted(db)).toBe(false);
+
+    // when
+    seedAll(db);
+
+    // then
+    expect(isSeedCompleted(db)).toBe(true);
+  });
+
+  test("skips seed when already completed", () => {
+    // given
+    seedAll(db);
+    const firstCount = db.select().from(issueStatuses).all().length;
+
+    // when — run again
+    seedAll(db);
+    const secondCount = db.select().from(issueStatuses).all().length;
+
+    // then — same count, no duplicates
+    expect(secondCount).toBe(firstCount);
+    expect(isSeedCompleted(db)).toBe(true);
+  });
+});

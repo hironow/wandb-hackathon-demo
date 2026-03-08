@@ -41,6 +41,13 @@ export function ensureTables(db: AppDatabase): void {
   `);
 
   sqlite.run(`
+    CREATE TABLE IF NOT EXISTS seed_metadata (
+      seed_name TEXT PRIMARY KEY,
+      completed_at TEXT NOT NULL
+    )
+  `);
+
+  sqlite.run(`
     CREATE TABLE IF NOT EXISTS issue_labels (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

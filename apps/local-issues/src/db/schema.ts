@@ -18,6 +18,11 @@ const timestamps = {
     .default(sql`(datetime('now'))`),
 };
 
+export const seedMetadata = sqliteTable("seed_metadata", {
+  seedName: text("seed_name").primaryKey(),
+  completedAt: text("completed_at").notNull(),
+});
+
 // ── Teams ──────────────────────────────────────────
 
 export const teams = sqliteTable("teams", {

@@ -1,6 +1,8 @@
-import { teams, users, issueStatuses, localConfig } from "./schema.ts";
+import { eq } from "drizzle-orm";
+import { teams, users, issueStatuses, localConfig, seedMetadata } from "./schema.ts";
 import type { AppDatabase } from "./client.ts";
 
+const SEED_NAME = "default-seed-v1";
 const DEFAULT_TEAM_ID = "default-team";
 const DEFAULT_USER_ID = "default-user";
 const SECOND_USER_ID = "default-user-2";
@@ -9,13 +11,6 @@ const SEED_TEAM = {
   id: DEFAULT_TEAM_ID,
   name: "Default Team",
   key: "DEF",
-} as const;
-
-const SEED_ARCHIVED_TEAM = {
-  id: "archived-team",
-  name: "Archived Team",
-  key: "ARC",
-  archivedAt: "2025-01-01T00:00:00",
 } as const;
 
 const SEED_ARCHIVED_TEAM = {
@@ -86,10 +81,30 @@ export function seedDefaultStatuses(db: AppDatabase, teamId: string = DEFAULT_TE
     .run();
 }
 
+export function isSeedCompleted(db: AppDatabase): boolean {
+  const row = db
+    .select()
+    .from(seedMetadata)
+    .where(eq(seedMetadata.seedName, SEED_NAME))
+    .get();
+  return row !== undefined;
+}
+
+function markSeedCompleted(db: AppDatabase): void {
+  db.insert(seedMetadata)
+    .values({ seedName: SEED_NAME, completedAt: new Date().toISOString() })
+    .onConflictDoNothing()
+    .run();
+}
+
 export function seedAll(db: AppDatabase): void {
+  if (isSeedCompleted(db)) {
+    return;
+  }
   seedDefaultTeam(db);
   seedDefaultUsers(db);
   seedDefaultStatuses(db);
+  markSeedCompleted(db);
 }
 
 export function seed(db: AppDatabase): void {

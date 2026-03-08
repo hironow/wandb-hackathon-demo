@@ -63,12 +63,11 @@ describe("listIssueStatuses", () => {
     }
   });
 
-  test("returns empty array for non-existent team", () => {
-    // when
-    const result = listIssueStatuses(db, { team: "non-existent-team" });
-
-    // then
-    expect(result).toHaveLength(0);
+  test("throws error for non-existent team", () => {
+    // when/then
+    expect(() => listIssueStatuses(db, { team: "non-existent-team" })).toThrow(
+      "Team not found: non-existent-team",
+    );
   });
 
   test("statuses are ordered by position", () => {
@@ -127,5 +126,12 @@ describe("getIssueStatus", () => {
 
     // then
     expect(result).toBeNull();
+  });
+
+  test("throws error for non-existent team", () => {
+    // when/then
+    expect(() => getIssueStatus(db, { name: "Backlog", team: "non-existent-team" })).toThrow(
+      "Team not found: non-existent-team",
+    );
   });
 });
