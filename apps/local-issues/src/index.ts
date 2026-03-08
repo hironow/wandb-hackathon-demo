@@ -8,7 +8,7 @@ import { seedAll } from "./db/seed.ts";
 import { listIssueStatuses, getIssueStatus } from "./tools/issue-statuses.ts";
 import { listIssueLabels, createIssueLabel } from "./tools/issue-labels.ts";
 import { saveIssue, getIssue, listIssues } from "./tools/issues.ts";
-import { saveProject, getProject, listProjects, listProjectLabels } from "./tools/projects.ts";
+import { saveProject, getProject, listProjects, listProjectLabels, createProjectLabel, deleteProjectLabel } from "./tools/projects.ts";
 import { saveMilestone, getMilestone, listMilestones } from "./tools/milestones.ts";
 import { saveComment, listComments, deleteComment } from "./tools/comments.ts";
 import { createAttachment, getAttachment, deleteAttachment } from "./tools/attachments.ts";
@@ -248,6 +248,42 @@ function registerTools(server: McpServer, db: AppDatabase): void {
     async (params) => {
       const result = listProjectLabels(db, params);
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "create_project_label",
+    "Create a new project label",
+    {
+      name: z.string().describe("Label name"),
+      color: z.optional(z.string()).describe("Label color (hex)"),
+      description: z.optional(z.string()).describe("Label description"),
+    },
+    async (params) => {
+      try {
+        const result = createProjectLabel(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "delete_project_label",
+    "Delete a project label by ID",
+    {
+      id: z.string().describe("Label ID to delete"),
+    },
+    async (params) => {
+      try {
+        const result = deleteProjectLabel(db, params);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: "text" as const, text: message }], isError: true };
+      }
     },
   );
 

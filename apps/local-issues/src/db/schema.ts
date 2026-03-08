@@ -151,8 +151,9 @@ export const issues = sqliteTable(
 
 export const projectLabels = sqliteTable("project_labels", {
   id: text("id").primaryKey(),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
   color: text("color"),
+  description: text("description"),
   ...timestamps,
 });
 

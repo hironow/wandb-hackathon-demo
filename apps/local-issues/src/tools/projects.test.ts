@@ -7,6 +7,8 @@ import {
   getProject,
   listProjects,
   listProjectLabels,
+  createProjectLabel,
+  deleteProjectLabel,
 } from "./projects.ts";
 import { existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -495,5 +497,140 @@ describe("listProjectLabels", () => {
     // then
     expect(result.items).toHaveLength(0);
     expect(result.hasNextPage).toBe(false);
+  });
+
+  test("returns created project labels", () => {
+    // given
+    createProjectLabel(db, { name: "Bug", color: "#d73a4a" });
+    createProjectLabel(db, { name: "Feature", color: "#0075ca" });
+
+    // when
+    const result = listProjectLabels(db, {});
+
+    // then
+    expect(result.items).toHaveLength(2);
+  });
+});
+
+describe("createProjectLabel", () => {
+  let db: AppDatabase;
+
+  beforeEach(() => {
+    cleanupDb();
+    db = setupTestDb();
+  });
+
+  afterEach(() => {
+    cleanupDb();
+  });
+
+  test("creates a label with required fields", () => {
+    // when
+    const label = createProjectLabel(db, { name: "Bug" });
+
+    // then
+    expect(label.id).toBeDefined();
+    expect(label.name).toBe("Bug");
+    expect(label.createdAt).toBeDefined();
+    expect(label.updatedAt).toBeDefined();
+  });
+
+  test("creates a label with all optional fields", () => {
+    // when
+    const label = createProjectLabel(db, {
+      name: "Feature",
+      color: "#0075ca",
+      description: "New feature requests",
+    });
+
+    // then
+    expect(label.name).toBe("Feature");
+    expect(label.color).toBe("#0075ca");
+    expect(label.description).toBe("New feature requests");
+  });
+
+  test("creates a label without color returns undefined color", () => {
+    // when
+    const label = createProjectLabel(db, { name: "NoColor" });
+
+    // then
+    expect(label.color).toBeUndefined();
+  });
+
+  test("throws error for empty name", () => {
+    // when/then
+    expect(() => createProjectLabel(db, { name: "" })).toThrow("required");
+  });
+
+  test("throws error for whitespace-only name", () => {
+    // when/then
+    expect(() => createProjectLabel(db, { name: "   " })).toThrow("required");
+  });
+
+  test("throws error for duplicate name", () => {
+    // given
+    createProjectLabel(db, { name: "Bug" });
+
+    // when/then
+    expect(() => createProjectLabel(db, { name: "Bug" })).toThrow("already exists");
+  });
+
+  test("label is retrievable via listProjectLabels after creation", () => {
+    // given
+    const created = createProjectLabel(db, { name: "Urgent", color: "#ff0000" });
+
+    // when
+    const result = listProjectLabels(db, {});
+
+    // then
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]!.id).toBe(created.id);
+    expect(result.items[0]!.name).toBe("Urgent");
+  });
+});
+
+describe("deleteProjectLabel", () => {
+  let db: AppDatabase;
+
+  beforeEach(() => {
+    cleanupDb();
+    db = setupTestDb();
+  });
+
+  afterEach(() => {
+    cleanupDb();
+  });
+
+  test("deletes an existing label", () => {
+    // given
+    const label = createProjectLabel(db, { name: "ToDelete" });
+
+    // when
+    const result = deleteProjectLabel(db, { id: label.id });
+
+    // then
+    expect(result.success).toBe(true);
+
+    const remaining = listProjectLabels(db, {});
+    expect(remaining.items).toHaveLength(0);
+  });
+
+  test("throws error for nonexistent label ID", () => {
+    // when/then
+    expect(() => deleteProjectLabel(db, { id: "nonexistent-id" })).toThrow("not found");
+  });
+
+  test("only deletes the specified label", () => {
+    // given
+    const label1 = createProjectLabel(db, { name: "Keep" });
+    const label2 = createProjectLabel(db, { name: "Delete" });
+
+    // when
+    deleteProjectLabel(db, { id: label2.id });
+
+    // then
+    const remaining = listProjectLabels(db, {});
+    expect(remaining.items).toHaveLength(1);
+    expect(remaining.items[0]!.id).toBe(label1.id);
   });
 });
