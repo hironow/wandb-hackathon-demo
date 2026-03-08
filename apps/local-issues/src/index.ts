@@ -491,12 +491,19 @@ function registerTools(server: McpServer, db: AppDatabase): void {
 
   server.tool(
     "extract_images",
-    "Extract image URLs and alt text from markdown content",
+    "Extract images from Markdown content, fetch external URLs as base64 (10s timeout per request)",
     {
       markdown: z.string().describe("Markdown content to extract images from"),
+      base_url: z.optional(z.string()).describe("Base URL for resolving relative image paths"),
     },
     async (params) => {
-      const result = extractImages(params.markdown);
+      const result = await extractImages(params);
+      if (result.error) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ error: result.error }) }],
+          isError: true,
+        };
+      }
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
