@@ -27,7 +27,7 @@ export interface Document {
 export interface PaginatedResult<T> {
   items: T[];
   hasNextPage: boolean;
-  cursor?: string;
+  endCursor: string | null;
 }
 
 export interface CreateDocumentParams {
@@ -322,15 +322,15 @@ export function listDocuments(
   const hasNextPage = rows.length > limit;
   const items = (hasNextPage ? rows.slice(0, limit) : rows).map(toDocument);
 
-  // Encode cursor from last item's timestamp + id
-  let cursor: string | undefined;
+  // Encode endCursor from last item's timestamp + id
+  let endCursor: string | null = null;
   if (hasNextPage && items.length > 0) {
     const lastItem = items[items.length - 1]!;
     const ts = params.orderBy === "createdAt" ? lastItem.createdAt : lastItem.updatedAt;
-    cursor = encodeCursor(ts, lastItem.id);
+    endCursor = encodeCursor(ts, lastItem.id);
   }
 
-  return { items, hasNextPage, cursor };
+  return { items, hasNextPage, endCursor };
 }
 
 export function updateDocument(db: AppDatabase, params: UpdateDocumentParams): Document {
